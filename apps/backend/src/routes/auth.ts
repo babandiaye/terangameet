@@ -3,6 +3,7 @@ import { getOidcClient, redirectUri, pkce } from '../auth/oidc'
 import { env } from '../config/env'
 import { prisma } from '../lib/prisma'
 import { logger } from '../lib/logger'
+import { postLoginTarget, safeReturnTo } from '../lib/postLogin'
 
 export const authRouter = Router()
 
@@ -24,7 +25,9 @@ authRouter.get('/authenticate/', async (req, res) => {
 
   // Already logged in → straight back.
   if (req.session.userId) {
-    return res.redirect(returnTo)
+    return res.redirect(
+      silent ? safeReturnTo(returnTo, env.APP_BASE_URL) : postLoginTarget(returnTo, env.APP_BASE_URL, !!req.user?.isStaff)
+    )
   }
 
   try {
@@ -67,7 +70,7 @@ authRouter.get('/callback/', async (req, res) => {
 
     // Silent login that requires interaction → just go back, unauthenticated.
     if (flow.silent && params.error) {
-      return res.redirect(flow.returnTo)
+      return res.redirect(safeReturnTo(flow.returnTo, env.APP_BASE_URL))
     }
 
     const tokenSet = await client.callback(redirectUri(), params, {
@@ -92,16 +95,20 @@ authRouter.get('/callback/', async (req, res) => {
 
     const user = await upsertUser({ sub, email, fullName, shortName })
     if (!user) {
-      return res.redirect(flow.returnTo)
+      return res.redirect(safeReturnTo(flow.returnTo, env.APP_BASE_URL))
     }
 
     req.session.userId = user.id
     // Keep the (possibly long) id token for clean RP-initiated logout.
     ;(req.session as unknown as { idToken?: string }).idToken = tokenSet.id_token
-    res.redirect(flow.returnTo)
+    res.redirect(
+      flow.silent
+        ? safeReturnTo(flow.returnTo, env.APP_BASE_URL)
+        : postLoginTarget(flow.returnTo, env.APP_BASE_URL, user.isStaff)
+    )
   } catch (err) {
     if (flow.silent) {
-      return res.redirect(flow.returnTo)
+      return res.redirect(safeReturnTo(flow.returnTo, env.APP_BASE_URL))
     }
     logger.error('[auth] callback failed', err)
     res.status(500).json({ detail: 'Authentication failed.' })
