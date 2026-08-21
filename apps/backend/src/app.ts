@@ -89,6 +89,11 @@ export function createApp() {
       app.use(express.static(dist, { index: false }))
       app.get('*', (req, res, next) => {
         if (req.path.startsWith('/api') || req.path.startsWith('/oidc')) return next()
+        // A path carrying a file extension is an asset request, not an SPA route.
+        // Without this, express.static missing a file fell through to index.html:
+        // deleted assets still answered 200, and browsers asking for e.g.
+        // /apple-touch-icon-precomposed.png were served HTML as an image.
+        if (path.extname(req.path)) return next()
         res.sendFile(path.join(dist, 'index.html'))
       })
     } else {
