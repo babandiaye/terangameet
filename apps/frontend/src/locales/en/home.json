@@ -58,5 +58,42 @@
     },
     "carouselLabel": "Introduction slideshow",
     "slidePosition": "Slide {{current}} of {{total}}"
+  },
+  "landing": {
+    "headingLine1": "Connect.",
+    "headingLine2": "Collaborate.",
+    "headingAccent": "Go further.",
+    "lead": "TerangaMeet is the secure, high-performance and sovereign video conferencing platform of Université numérique Cheikh Hamidou Kane.",
+    "trust": {
+      "secure": "Secure & private",
+      "quality": "Adaptive HD quality",
+      "hosted": "Hosted in Senegal"
+    },
+    "join": {
+      "label": "Got a meeting code?",
+      "placeholder": "abc-defg-hij",
+      "empty": "Enter a meeting code to continue.",
+      "invalid": "That code doesn't match the expected format (example: abc-defg-hij). You can also paste the full link you received."
+    },
+    "signInPrompt": "Part of the UN-CHK community?",
+    "signInAction": "Sign in to create a meeting",
+    "pillars": {
+      "meetings": {
+        "title": "Meetings & virtual classrooms",
+        "body": "Run lectures, seminars and team meetings, with no time limit and nothing to install."
+      },
+      "collab": {
+        "title": "Sharing & collaboration",
+        "body": "Screen sharing with audio, written chat, reactions and private notes in real time."
+      },
+      "security": {
+        "title": "Security & sovereignty",
+        "body": "Data hosted in Senegal, SenID authentication, waiting room and access control."
+      },
+      "performance": {
+        "title": "High performance",
+        "body": "Audio and video quality that adapts to your connection, with ambient noise reduction."
+      }
+    }
   }
 }

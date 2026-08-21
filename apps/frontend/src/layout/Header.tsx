@@ -14,6 +14,7 @@ import { VisualOnlyTooltip } from '@/primitives/VisualOnlyTooltip'
 
 import { useLoginHint } from '@/hooks/useLoginHint'
 import { logout } from '@/features/auth/utils/logout'
+import { useHomePath } from '@/features/auth/utils/useHomePath'
 
 const Logo = () => (
   <img
@@ -96,6 +97,7 @@ export const Header = () => {
   const isTermsOfService = useMatchesRoute('termsOfService')
   const isRoom = useMatchesRoute('room')
   const { user, isLoggedIn } = useUser()
+  const homePath = useHomePath()
   const userLabel = user?.full_name || user?.email
   const loggedInTooltip = t('loggedInUserTooltip')
   const loggedInAriaLabel = userLabel
@@ -136,7 +138,7 @@ export const Header = () => {
                     event.preventDefault()
                   }
                 }}
-                to="/"
+                to={homePath}
               >
                 {/* this is there only as a hook for custom CSS users who might want to show something before the app logo */}
                 <div
@@ -152,14 +154,17 @@ export const Header = () => {
           </header>
           <nav>
             <Stack gap={1} direction="row" align="center">
+              {/* The landing page now carries its own sign-in call to action in
+                  the body, but the button must also sit here, top right, where
+                  visitors look for it. Legal pages keep it hidden: they are
+                  reachable while signed out and are not an entry point. */}
               {isLoggedIn === false &&
-                !isHome &&
                 !isLegalTerms &&
                 !isAccessibility &&
                 !isTermsOfService && (
                   <>
                     <LoginButton proConnectHint={false} />
-                    <LoginHint />
+                    {!isHome && <LoginHint />}
                   </>
                 )}
               {!!user && (

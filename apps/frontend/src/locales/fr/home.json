@@ -58,5 +58,42 @@
       "title": "Transformez vos réunions avec l'IA",
       "body": "Obtenez des transcriptions précises et actionnables, pour booster votre productivité. Fonctionnalité en beta, essayez-la maintenant !"
     }
+  },
+  "landing": {
+    "headingLine1": "Connectez-vous.",
+    "headingLine2": "Collaborez.",
+    "headingAccent": "Transcendez.",
+    "lead": "TerangaMeet est la plateforme de visioconférence sécurisée, performante et souveraine de l'Université numérique Cheikh Hamidou Kane.",
+    "trust": {
+      "secure": "Sécurisé & privé",
+      "quality": "Qualité HD adaptative",
+      "hosted": "Hébergé au Sénégal"
+    },
+    "join": {
+      "label": "Vous avez reçu un code de réunion ?",
+      "placeholder": "abc-defg-hij",
+      "empty": "Saisissez un code de réunion pour continuer.",
+      "invalid": "Ce code ne correspond pas au format attendu (exemple : abc-defg-hij). Vous pouvez aussi coller le lien complet reçu."
+    },
+    "signInPrompt": "Membre de la communauté UN-CHK ?",
+    "signInAction": "Connectez-vous pour créer une réunion",
+    "pillars": {
+      "meetings": {
+        "title": "Réunions & classes virtuelles",
+        "body": "Organisez cours, séminaires et réunions de service, sans limite de durée et sans rien installer."
+      },
+      "collab": {
+        "title": "Partage & collaboration",
+        "body": "Partage d'écran avec le son, discussion écrite, réactions et notes personnelles en temps réel."
+      },
+      "security": {
+        "title": "Sécurité & souveraineté",
+        "body": "Données hébergées au Sénégal, authentification SenID, salle d'attente et contrôle d'accès."
+      },
+      "performance": {
+        "title": "Haute performance",
+        "body": "Qualité audio et vidéo qui s'adapte à votre connexion, avec réduction du bruit ambiant."
+      }
+    }
   }
 }

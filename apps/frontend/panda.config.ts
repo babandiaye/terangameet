@@ -326,6 +326,40 @@ const config: Config = {
           DEFAULT: { value: '{colors.blue.700}' },
           notification: { value: '{colors.red.600}' },
         },
+        // Accents de la marque UN-CHK (vert / orange / violet / bleu), nommés ici
+        // pour qu'aucun composant n'ait à écrire de valeur hexadécimale brute.
+        // Palette de la page d'accueil institutionnelle : blanc dominant, bleu
+        // d'action, ardoise pour les fonds en retrait. Distincte de primary.800
+        // (#000091, bleu hérité du projet Meet) qui reste la couleur d'action
+        // du reste de l'application.
+        landing: {
+          ink: { value: '#0F172A' },
+          'ink-soft': { value: '#334155' },
+          muted: { value: '#64748B' },
+          blue: { value: '#1D4ED8' },
+          'blue-bright': { value: '#2563EB' },
+          'blue-subtle': { value: '#DBEAFE' },
+          surface: { value: '#FFFFFF' },
+          'surface-alt': { value: '#F1F5F9' },
+          border: { value: '#E2E8F0' },
+          'tint-green': { value: '#DCFCE7' },
+          'tint-orange': { value: '#FFEDD5' },
+          'tint-purple': { value: '#F3E8FF' },
+          'icon-green': { value: '#16A34A' },
+          'icon-orange': { value: '#EA580C' },
+          'icon-purple': { value: '#9333EA' },
+        },
+        brand: {
+          green: { value: '#1E9E6A' },
+          'green-subtle': { value: '#E6F6EF' },
+          'green-tint': { value: '#F0F7F3' },
+          orange: { value: '#E8870B' },
+          'orange-subtle': { value: '#FFF1E2' },
+          violet: { value: '#7C4DEE' },
+          'violet-subtle': { value: '#F1ECFE' },
+          blue: { value: '#3B5BDB' },
+          'blue-subtle': { value: '#EAF0FF' },
+        },
         success: {
           DEFAULT: { value: '{colors.green.700}' },
           hover: { value: '{colors.green.800}' },

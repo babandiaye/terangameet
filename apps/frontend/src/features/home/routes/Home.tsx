@@ -1,152 +1,97 @@
 import { useTranslation } from 'react-i18next'
-import { DialogTrigger } from 'react-aria-components'
-import { Button } from '@/primitives'
-import { styled } from '@/styled-system/jsx'
+import { useLocation } from 'wouter'
+import { ReactNode, useEffect, useState } from 'react'
+import {
+  RiArrowRightLine,
+  RiDatabase2Line,
+  RiHdLine,
+  RiLockLine,
+  RiVideoAddLine,
+} from '@remixicon/react'
 import { Screen } from '@/layout/Screen'
 import { UserAware } from '@/features/auth/components/UserAware'
 import { useUser } from '@/features/auth/api/useUser'
-import { JoinMeetingDialog } from '../components/JoinMeetingDialog'
-import { IntroSlider } from '../components/IntroSlider'
+import { useHomePath } from '@/features/auth/utils/useHomePath'
+import { authUrl } from '@/features/auth/utils/authUrl'
+import { JoinMeetingInline } from '../components/JoinMeetingInline'
+import { LandingSections } from '../components/LandingSections'
 import { MoreLink } from '../components/MoreLink'
-import { CreateMeetingMenu } from '../components/CreateMeetingMenu'
-import { ReactNode, useEffect, useState } from 'react'
-
 import { css } from '@/styled-system/css'
 import { useConfig } from '@/api/useConfig'
-import { LoginButton } from '@/components/LoginButton'
 import { LoadingScreen } from '@/components/LoadingScreen'
 
-const Columns = ({ children }: { children?: ReactNode }) => {
-  return (
+const TRUST = [
+  { key: 'secure', Icon: RiLockLine },
+  { key: 'quality', Icon: RiHdLine },
+  { key: 'hosted', Icon: RiDatabase2Line },
+] as const
+
+/**
+ * Campus photograph as an atmospheric ground. Kept at very low opacity and
+ * faded out downward: the source image carries its own headline and logo, which
+ * must not compete with the page's own type. Decorative, so aria-hidden.
+ */
+const CampusBackdrop = () => (
+  <div
+    aria-hidden="true"
+    className={css({
+      position: 'absolute',
+      inset: 0,
+      zIndex: 0,
+      pointerEvents: 'none',
+      backgroundImage: 'url(/assets/unchk-campus-bg.webp)',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center 40%',
+      opacity: 0.22,
+      maskImage:
+        'linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.6) 60%, rgba(0,0,0,0) 100%)',
+      WebkitMaskImage:
+        'linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.6) 60%, rgba(0,0,0,0) 100%)',
+    })}
+  />
+)
+
+const Hero = ({ children }: { children?: ReactNode }) => (
+  <div
+    className={css({
+      position: 'relative',
+      width: '100%',
+      paddingX: { base: '1rem', sm: '1.5rem' },
+      paddingTop: { base: '2rem', md: '3.5rem' },
+      paddingBottom: { base: '2.5rem', md: '4rem' },
+      _motionReduce: { opacity: 1 },
+      _motionSafe: { opacity: 0, animation: '.5s ease-in fade 0s forwards' },
+    })}
+  >
+    <CampusBackdrop />
     <div
       className={css({
-        alignItems: 'center',
-        margin: 'auto',
-        display: 'inline-flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: '100%',
-        justifyContent: 'normal',
-        padding: '0 1rem',
-        width: 'calc(100% - 2rem)',
-        _motionReduce: {
-          opacity: 1,
-        },
-        _motionSafe: {
-          opacity: 0,
-          animation: '.5s ease-in fade 0s forwards',
-        },
-        lg: {
-          flexDirection: 'row',
-          justifyContent: 'center',
-          width: '100%',
-          padding: 0,
-        },
+        position: 'relative',
+        zIndex: 1,
+        maxWidth: '76rem',
+        margin: '0 auto',
       })}
     >
-      {children}
+      <div className={css({ maxWidth: '44rem' })}>{children}</div>
     </div>
-  )
-}
-
-const LeftColumn = ({ children }: { children?: ReactNode }) => {
-  return (
-    <div
-      className={css({
-        alignItems: 'center',
-        textAlign: 'center',
-        display: 'inline-flex',
-        flexDirection: 'column',
-        flexBasis: 'auto',
-        flexShrink: 0,
-        maxWidth: '38rem',
-        width: '100%',
-        padding: '1rem 3%',
-        marginTop: 'auto',
-        lg: {
-          margin: 0,
-          textAlign: 'left',
-          alignItems: 'flex-start',
-          flexShrink: '1',
-          flexBasis: '40rem',
-          maxWidth: '40rem',
-          padding: '1em 3em',
-        },
-      })}
-    >
-      {children}
-    </div>
-  )
-}
-
-const RightColumn = ({ children }: { children?: ReactNode }) => {
-  return (
-    <div
-      className={css({
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        overflow: 'hidden',
-        padding: '1rem 3%',
-        marginBottom: 'auto',
-        flexBasis: 'auto',
-        flexShrink: 0,
-        maxWidth: '39rem',
-        lg: {
-          margin: 0,
-          flexBasis: '45%',
-          padding: '1em 3em',
-        },
-      })}
-    >
-      {children}
-    </div>
-  )
-}
-
-const Separator = styled('div', {
-  base: {
-    borderBottom: '1px solid',
-    borderColor: 'greyscale.500',
-    marginTop: '2.5rem',
-    maxWidth: '30rem',
-    width: '100%',
-  },
-})
-
-const Heading = styled('h1', {
-  base: {
-    fontWeight: '700',
-    fontStyle: 'normal',
-    fontStretch: 'normal',
-    fontOpticalSizing: 'auto',
-    paddingBottom: '1.2rem',
-    fontSize: '2.3rem',
-    lineHeight: '2.6rem',
-    letterSpacing: '0',
-    xsm: {
-      fontSize: '3rem',
-      lineHeight: '3.2rem',
-    },
-  },
-})
-
-const IntroText = styled('div', {
-  base: {
-    marginBottom: '3rem',
-    fontSize: '1.2rem',
-    lineHeight: '1.5rem',
-    textWrap: 'balance',
-    maxWidth: '32rem',
-  },
-})
+  </div>
+)
 
 const Home = () => {
   const { t } = useTranslation('home')
   const { isLoggedIn } = useUser()
+  const [, setLocation] = useLocation()
+  const homePath = useHomePath()
 
   const [redirectFailed, setRedirectFailed] = useState(false)
   const { data } = useConfig()
+
+  // The landing page is for anonymous visitors. A signed-in user belongs in
+  // their own space (the console for administrators), so send them there rather
+  // than showing the marketing page. `replace` keeps it out of the history.
+  useEffect(() => {
+    if (isLoggedIn) setLocation(homePath, { replace: true })
+  }, [isLoggedIn, homePath, setLocation])
 
   useEffect(() => {
     const checkSiteAndRedirect = async () => {
@@ -172,48 +117,130 @@ const Home = () => {
     return <LoadingScreen header={false} footer={false} delay={0} />
   }
 
+  // Redirect in flight: don't flash the marketing page on the way out.
+  if (isLoggedIn) {
+    return <LoadingScreen header={false} footer={false} delay={0} />
+  }
+
   return (
     <UserAware>
       <Screen>
-        <Columns>
-          <LeftColumn>
-            <Heading>{t('heading')}</Heading>
-            <IntroText>{t('intro')}</IntroText>
-            <div
+        <Hero>
+          <div>
+            <h1
               className={css({
-                display: 'flex',
-                gap: 0.5,
-                flexDirection: { base: 'column', xsm: 'row' },
-                alignItems: { base: 'center', xsm: 'items-start' },
+                fontWeight: 800,
+                fontSize: {
+                  base: '2.1rem',
+                  xs: '2.5rem',
+                  xsm: '3rem',
+                  lg: '3.4rem',
+                },
+                lineHeight: 1.08,
+                letterSpacing: '-0.03em',
+                color: 'landing.ink',
+                textWrap: 'balance',
+                overflowWrap: 'anywhere',
               })}
             >
-              {isLoggedIn ? (
-                <CreateMeetingMenu />
-              ) : (
-                <LoginButton proConnectHint={false} />
-              )}
-              <DialogTrigger>
-                <Button
-                  variant="secondary"
-                  style={{
-                    height:
-                      !isLoggedIn && data?.use_proconnect_button
-                        ? '56px'
-                        : undefined, // Temporary, Align with ProConnect Button fixed height
-                  }}
+              {t('landing.headingLine1')}
+              <br />
+              {t('landing.headingLine2')}
+              <br />
+              <span className={css({ color: 'landing.blue-bright' })}>
+                {t('landing.headingAccent')}
+              </span>
+            </h1>
+
+            <p
+              className={css({
+                marginTop: '1.3rem',
+                maxWidth: '32rem',
+                fontSize: { base: '1rem', sm: '1.05rem' },
+                lineHeight: 1.65,
+                color: 'landing.ink-soft',
+              })}
+            >
+              {t('landing.lead')}
+            </p>
+
+            <ul
+              className={css({
+                listStyle: 'none',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: '0.6rem 1.3rem',
+                marginTop: '1.6rem',
+              })}
+            >
+              {TRUST.map(({ key, Icon }) => (
+                <li
+                  key={key}
+                  className={css({
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    fontSize: '0.86rem',
+                    color: 'landing.ink-soft',
+                  })}
                 >
-                  {t('joinMeeting')}
-                </Button>
-                <JoinMeetingDialog />
-              </DialogTrigger>
-            </div>
-            <Separator />
+                  <span
+                    className={css({
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '7px',
+                      backgroundColor: 'landing.blue-subtle',
+                      color: 'landing.blue-bright',
+                      flexShrink: 0,
+                    })}
+                  >
+                    <Icon size={15} aria-hidden="true" />
+                  </span>
+                  {t(`landing.trust.${key}`)}
+                </li>
+              ))}
+            </ul>
+
+            {/* The one action a visitor without an account can complete. */}
+            <JoinMeetingInline />
+
+            <p
+              className={css({
+                marginTop: '0.4rem',
+                fontSize: '0.9rem',
+                color: 'landing.muted',
+              })}
+            >
+              {t('landing.signInPrompt')}{' '}
+              <a
+                href={authUrl()}
+                data-attr="login"
+                className={css({
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  color: 'landing.blue',
+                  fontWeight: 600,
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '3px',
+                  _hover: { color: 'landing.blue-bright' },
+                })}
+              >
+                <RiVideoAddLine size={16} aria-hidden="true" />
+                {t('landing.signInAction')}
+                <RiArrowRightLine size={15} aria-hidden="true" />
+              </a>
+            </p>
+
             <MoreLink />
-          </LeftColumn>
-          <RightColumn>
-            <IntroSlider />
-          </RightColumn>
-        </Columns>
+          </div>
+        </Hero>
+
+        <LandingSections />
       </Screen>
     </UserAware>
   )
