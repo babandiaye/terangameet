@@ -17,7 +17,6 @@ import {
   RiFilmLine,
   RiArrowUpLine,
   RiArrowDownLine,
-  RiAddLine,
   RiUserAddLine,
   RiRecordCircleLine,
   RiDoorOpenLine,
@@ -28,11 +27,17 @@ import { fetchAdminDashboard } from '../api/adminApi'
 import type { SeriesPoint, ActivityItem } from '../api/types'
 import { Badge } from '@/components/console/ui'
 import { formatBucket, formatRelative, formatDuration, formatDateTime } from '@/components/console/utils'
+import { useTranslation } from 'react-i18next'
+import { DialogTrigger } from 'react-aria-components'
+import { Button } from '@/primitives'
+import { CreateMeetingMenu } from '@/features/home/components/CreateMeetingMenu'
+import { JoinMeetingDialog } from '@/features/home/components/JoinMeetingDialog'
 
 type Gran = 'hour' | 'day' | 'month'
 
 export const DashboardPage = () => {
   const { user } = useUser()
+  const { t: tHome } = useTranslation('home')
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'dashboard'],
     queryFn: fetchAdminDashboard,
@@ -68,24 +73,15 @@ export const DashboardPage = () => {
             Voici ce qui se passe sur votre plateforme aujourd’hui.
           </p>
         </div>
-        <Link
-          to="/"
-          className={css({
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            backgroundColor: 'primary.800',
-            color: 'white',
-            padding: '0.65rem 1.1rem',
-            borderRadius: '10px',
-            fontWeight: 600,
-            fontSize: '0.92rem',
-            textDecoration: 'none',
-            _hover: { backgroundColor: 'primary.900' },
-          })}
-        >
-          <RiAddLine size={18} /> Nouvelle réunion
-        </Link>
+        {/* Same components as everywhere else: creating or joining a meeting
+            must behave identically wherever it is triggered from. */}
+        <div className={css({ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' })}>
+          <CreateMeetingMenu />
+          <DialogTrigger>
+            <Button variant="secondary">{tHome('joinMeeting')}</Button>
+            <JoinMeetingDialog />
+          </DialogTrigger>
+        </div>
       </div>
 
       {/* Stat cards */}
