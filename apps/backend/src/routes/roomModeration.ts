@@ -1,0 +1,158 @@
+import { Router } from 'express'
+import { z } from 'zod'
+import { roomService } from '../livekit/client'
+import { authorizeModeration } from '../services/rooms'
+import { logger } from '../lib/logger'
+
+export const roomModerationRouter = Router()
+
+/** POST /:roomId/toggle-hand/ — raise/lower own hand (LiveKit-token authed). */
+roomModerationRouter.post('/:roomId/toggle-hand/', async (req, res) => {
+  const lk = req.livekit
+  if (!lk?.identity) return res.status(401).json({ detail: 'LiveKit token required.' })
+  const raised = !!req.body?.raised
+  const { livekitRoom } = await authorizeModeration(req.params.roomId, {
+    userId: req.user?.id,
+    livekitRoom: lk.room,
+    livekitIsAdmin: lk.isAdmin,
+  })
+  try {
+    await roomService.updateParticipant(livekitRoom, lk.identity, {
+      attributes: { handRaisedAt: raised ? new Date().toISOString() : '' },
+    })
+    res.json({ status: 'success' })
+  } catch (err) {
+    logger.error('[moderation] toggle-hand failed', err)
+    res.status(502).json({ detail: 'Unable to update hand state.' })
+  }
+})
+
+/** POST /:roomId/rename/ — rename own participant (LiveKit-token authed). */
+roomModerationRouter.post('/:roomId/rename/', async (req, res) => {
+  const lk = req.livekit
+  if (!lk?.identity) return res.status(401).json({ detail: 'LiveKit token required.' })
+  const name = z.string().min(1).max(100).safeParse(req.body?.name)
+  if (!name.success) return res.status(400).json({ detail: 'Invalid name.' })
+  const { livekitRoom } = await authorizeModeration(req.params.roomId, {
+    userId: req.user?.id,
+    livekitRoom: lk.room,
+    livekitIsAdmin: lk.isAdmin,
+  })
+  try {
+    await roomService.updateParticipant(livekitRoom, lk.identity, { name: name.data })
+    res.json({ status: 'success' })
+  } catch (err) {
+    logger.error('[moderation] rename failed', err)
+    res.status(502).json({ detail: 'Unable to rename.' })
+  }
+})
+
+/** POST /:roomId/mute-participant/ — admin mutes a participant's track. */
+roomModerationRouter.post('/:roomId/mute-participant/', async (req, res) => {
+  const schema = z.object({
+    participant_identity: z.string().min(1),
+    track_sid: z.string().optional(),
+  })
+  const parsed = schema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ detail: 'Invalid payload.' })
+
+  const auth = await authorizeModeration(req.params.roomId, {
+    userId: req.user?.id,
+    livekitRoom: req.livekit?.room,
+    livekitIsAdmin: req.livekit?.isAdmin,
+  })
+  if (!auth.ok) return res.status(403).json({ detail: 'Insufficient privileges.' })
+
+  try {
+    let trackSid = parsed.data.track_sid
+    if (!trackSid) {
+      const participants = await roomService.listParticipants(auth.livekitRoom)
+      const p = participants.find((x) => x.identity === parsed.data.participant_identity)
+      trackSid = p?.tracks.find((t) => t.type === 0 /* AUDIO */)?.sid
+    }
+    if (!trackSid) return res.json({ status: 'success', detail: 'No track to mute.' })
+    await roomService.mutePublishedTrack(
+      auth.livekitRoom,
+      parsed.data.participant_identity,
+      trackSid,
+      true
+    )
+    res.json({ status: 'success' })
+  } catch (err) {
+    logger.error('[moderation] mute failed', err)
+    res.status(502).json({ detail: 'Unable to mute participant.' })
+  }
+})
+
+/** POST /:roomId/remove-participant/ — admin removes a participant. */
+roomModerationRouter.post('/:roomId/remove-participant/', async (req, res) => {
+  const identity = z.string().min(1).safeParse(req.body?.participant_identity)
+  if (!identity.success) return res.status(400).json({ detail: 'Invalid participant_identity.' })
+
+  const auth = await authorizeModeration(req.params.roomId, {
+    userId: req.user?.id,
+    livekitRoom: req.livekit?.room,
+    livekitIsAdmin: req.livekit?.isAdmin,
+  })
+  if (!auth.ok) return res.status(403).json({ detail: 'Insufficient privileges.' })
+
+  try {
+    await roomService.removeParticipant(auth.livekitRoom, identity.data)
+    res.json({ status: 'success' })
+  } catch (err) {
+    logger.error('[moderation] remove failed', err)
+    res.status(502).json({ detail: 'Unable to remove participant.' })
+  }
+})
+
+/** POST /:roomId/update-participant/ — admin updates permissions/metadata/name/attributes. */
+roomModerationRouter.post('/:roomId/update-participant/', async (req, res) => {
+  const schema = z.object({
+    participant_identity: z.string().min(1),
+    permission: z.record(z.any()).optional(),
+    metadata: z.union([z.string(), z.record(z.any())]).optional(),
+    attributes: z.record(z.string()).optional(),
+    name: z.string().optional(),
+  })
+  const parsed = schema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ detail: 'Invalid payload.' })
+
+  const auth = await authorizeModeration(req.params.roomId, {
+    userId: req.user?.id,
+    livekitRoom: req.livekit?.room,
+    livekitIsAdmin: req.livekit?.isAdmin,
+  })
+  if (!auth.ok) return res.status(403).json({ detail: 'Insufficient privileges.' })
+
+  // Map snake_case permission keys to the LiveKit SDK's camelCase.
+  const p = parsed.data.permission
+  const permission = p
+    ? {
+        canSubscribe: p.can_subscribe,
+        canPublish: p.can_publish,
+        canPublishData: p.can_publish_data,
+        canUpdateMetadata: p.can_update_metadata,
+        canPublishSources: p.can_publish_sources,
+      }
+    : undefined
+
+  try {
+    await roomService.updateParticipant(auth.livekitRoom, parsed.data.participant_identity, {
+      ...(permission ? { permission: permission as never } : {}),
+      ...(parsed.data.metadata
+        ? {
+            metadata:
+              typeof parsed.data.metadata === 'string'
+                ? parsed.data.metadata
+                : JSON.stringify(parsed.data.metadata),
+          }
+        : {}),
+      ...(parsed.data.attributes ? { attributes: parsed.data.attributes } : {}),
+      ...(parsed.data.name ? { name: parsed.data.name } : {}),
+    })
+    res.json({ status: 'success' })
+  } catch (err) {
+    logger.error('[moderation] update-participant failed', err)
+    res.status(502).json({ detail: 'Unable to update participant.' })
+  }
+})

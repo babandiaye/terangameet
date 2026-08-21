@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+.secrets.generated
+*.log
+.DS_Store
+apps/frontend/src/styled-system/
+apps/backend/prisma/dev.db
+coverage/

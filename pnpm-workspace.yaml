@@ -1,0 +1,15 @@
+packages:
+  - 'apps/*'
+
+# The reused Meet frontend was authored for npm's flat node_modules and relies on
+# undeclared (phantom) transitive deps. A hoisted linker mirrors npm and resolves them.
+nodeLinker: hoisted
+
+# Allow these packages' install/build scripts to run (native bindings, Prisma engines).
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  core-js: true
+  esbuild: true
+  prisma: true
+  protobufjs: true

@@ -1,0 +1,252 @@
+// TerangaMeet v2 — Prisma schema (PostgreSQL)
+// Modeled on the Django "Meet" data model (User, Room, ResourceAccess, Recording, File, Application).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+  OWNER
+}
+
+enum RoomAccessLevel {
+  PUBLIC
+  TRUSTED
+  RESTRICTED
+}
+
+enum RecordingStatus {
+  INITIATED
+  ACTIVE
+  STOPPED
+  SAVED
+  ABORTED
+  FAILED_TO_START
+  FAILED_TO_STOP
+  NOTIFICATION_SUCCEEDED
+}
+
+enum RecordingMode {
+  SCREEN_RECORDING
+  TRANSCRIPT
+}
+
+enum FileUploadState {
+  PENDING
+  ANALYZING
+  READY
+}
+
+enum FileType {
+  BACKGROUND_IMAGE
+}
+
+model User {
+  id         String   @id @default(uuid())
+  sub        String?  @unique
+  email      String?
+  adminEmail String?  @unique
+  fullName   String?
+  shortName  String?
+  language   String   @default("fr-fr")
+  timezone   String   @default("UTC")
+  isDevice   Boolean  @default(false)
+  isStaff    Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  roomAccesses      RoomAccess[]
+  recordingAccesses RecordingAccess[]
+  recordingsCreated Recording[]       @relation("RecordingCreator")
+  files             File[]            @relation("FileCreator")
+  notes             MeetingNote[]
+  meetingSessions   MeetingSession[]  @relation("MeetingCreator")
+
+  @@index([email])
+  @@map("users")
+}
+
+model MeetingNote {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  /** LiveKit room name (room UUID for registered rooms, slug for ad-hoc). */
+  roomKey   String
+  content   String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, roomKey])
+  @@map("meeting_notes")
+}
+
+model Room {
+  id            String          @id @default(uuid())
+  name          String
+  slug          String?         @unique
+  accessLevel   RoomAccessLevel @default(PUBLIC)
+  configuration Json            @default("{}")
+  pinCode       String?         @unique
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  accesses   RoomAccess[]
+  recordings Recording[]
+  sessions   MeetingSession[]
+
+  @@map("rooms")
+}
+
+/// A real meeting occurrence, tracked from LiveKit room_started/room_finished
+/// webhooks. Powers the admin history & statistics (durations, frequency, top creators).
+model MeetingSession {
+  id              String    @id @default(uuid())
+  livekitSid      String?   @unique
+  livekitRoomName String
+  title           String?
+  room            Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  roomId          String?
+  creator         User?     @relation("MeetingCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  creatorId       String?
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  durationSec     Int?
+  maxParticipants Int       @default(0)
+  totalJoins      Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  participants    MeetingParticipant[]
+  recordings      Recording[]
+
+  @@index([startedAt])
+  @@index([creatorId])
+  @@index([roomId])
+  @@map("meeting_sessions")
+}
+
+/// One row per participant per meeting session. Entry = first join, exit = last
+/// leave: reconnections keep the earliest joinedAt and update lastLeftAt only.
+model MeetingParticipant {
+  id           String         @id @default(uuid())
+  session      MeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId    String
+  identity     String
+  name         String?
+  firstJoinedAt DateTime      @default(now())
+  lastLeftAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([sessionId, identity])
+  @@index([sessionId])
+  @@index([identity])
+  @@map("meeting_participants")
+}
+
+model RoomAccess {
+  id        String   @id @default(uuid())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, roomId])
+  @@map("room_accesses")
+}
+
+model Recording {
+  id        String          @id @default(uuid())
+  room      Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId    String
+  status    RecordingStatus @default(INITIATED)
+  workerId  String?
+  mode      RecordingMode
+  options   Json            @default("{}")
+  // Denormalized owner (who started it), for sorting/filtering in the admin UI.
+  creator   User?           @relation("RecordingCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  creatorId String?
+  /// The meeting occurrence this recording belongs to. Set when the egress is
+  /// started; lets participants of that session reach their own recordings.
+  session   MeetingSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  sessionId String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  accesses RecordingAccess[]
+
+  @@index([creatorId])
+  @@index([sessionId])
+  @@map("recordings")
+}
+
+model RecordingAccess {
+  id          String    @id @default(uuid())
+  recording   Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  recordingId String
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String?
+  team        String?
+  role        Role      @default(MEMBER)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, recordingId])
+  @@map("recording_accesses")
+}
+
+model File {
+  id                   String          @id @default(uuid())
+  type                 FileType        @default(BACKGROUND_IMAGE)
+  title                String
+  creator              User?           @relation("FileCreator", fields: [creatorId], references: [id])
+  creatorId            String?
+  filename             String
+  uploadState          FileUploadState @default(PENDING)
+  mimetype             String?
+  size                 BigInt?
+  description          String?
+  malwareDetectionInfo Json?
+  deletedAt            DateTime?
+  hardDeletedAt        DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@map("files")
+}
+
+model Application {
+  id           String   @id @default(uuid())
+  name         String
+  isActive     Boolean  @default(true)
+  clientId     String   @unique
+  clientSecret String
+  scopes       String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  domains ApplicationDomain[]
+
+  @@map("applications")
+}
+
+model ApplicationDomain {
+  id            String      @id @default(uuid())
+  domain        String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String
+
+  @@unique([applicationId, domain])
+  @@map("application_domains")
+}

@@ -1,0 +1,19 @@
+[Unit]
+Description=TerangaMeet v2 backend (Node/Express)
+After=network.target docker.service
+Wants=network.target
+
+# Remplacer User= par le compte système propriétaire de /opt/terangameetv2.
+[Service]
+Type=simple
+User=terangameet
+WorkingDirectory=/opt/terangameetv2/apps/backend
+EnvironmentFile=/opt/terangameetv2/apps/backend/.env.production
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=3
+# Allow binding and reaching the docker bridge network.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

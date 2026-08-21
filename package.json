@@ -1,0 +1,16 @@
+{
+  "name": "terangameet",
+  "version": "2.0.0",
+  "private": true,
+  "description": "TerangaMeet v2 — visioconférence UN-CHK (fullstack Node.js/React, basé sur Meet de La Suite Numérique)",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel -r run dev",
+    "dev:backend": "pnpm --filter @terangameet/backend run dev",
+    "dev:frontend": "pnpm --filter @terangameet/frontend run dev",
+    "build": "pnpm --filter @terangameet/frontend run build && pnpm --filter @terangameet/backend run build",
+    "start": "pnpm --filter @terangameet/backend run start"
+  }
+}
