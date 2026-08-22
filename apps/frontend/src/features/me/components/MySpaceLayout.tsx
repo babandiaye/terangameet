@@ -94,9 +94,15 @@ export const MySpaceLayout = ({
                     alignItems: 'center',
                     gap: '0.7rem',
                     padding: '0.7rem 0.85rem',
-                    borderRadius: '10px',
+                    // Same radius as the primary button: the console should read
+                    // as one set of controls, not two.
+                    borderRadius: '4px',
                     fontSize: '0.92rem',
                     fontWeight: active ? 700 : 500,
+                    // Flat, on the same token the primary button uses. The old
+                    // gradient and its tinted glow brought in two further blues
+                    // that matched nothing else on the page.
+                    backgroundColor: active ? 'primary.800' : undefined,
                     color: active ? 'white' : 'greyscale.700',
                     textDecoration: 'none',
                     whiteSpace: 'nowrap',
@@ -105,15 +111,6 @@ export const MySpaceLayout = ({
                       backgroundColor: active ? undefined : 'greyscale.100',
                     },
                   })}
-                  style={
-                    active
-                      ? {
-                          background:
-                            'linear-gradient(135deg, #4d5fe0 0%, #3b49b8 100%)',
-                          boxShadow: '0 6px 16px rgba(59,73,184,0.30)',
-                        }
-                      : undefined
-                  }
                 >
                   <Icon size={20} aria-hidden="true" />
                   <span>{label}</span>
