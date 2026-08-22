@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { roomService } from "../livekit/client";
+import { mapSources } from "../livekit/token";
 import {
   authorizeModeration,
   isAdminOrOwner,
@@ -162,7 +163,8 @@ roomModerationRouter.post("/:roomId/update-participant/", async (req, res) => {
         canPublish: p.can_publish,
         canPublishData: p.can_publish_data,
         canUpdateMetadata: p.can_update_metadata,
-        canPublishSources: p.can_publish_sources,
+        // Enum values, not names: protobuf rejects the request otherwise.
+        canPublishSources: mapSources(p.can_publish_sources),
       }
     : undefined;
 
