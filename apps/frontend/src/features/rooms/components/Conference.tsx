@@ -271,6 +271,17 @@ export const Conference = ({
                   }
                 )
                 return
+              case DisconnectReason.MIGRATION:
+                // The client reconnects on its own; navigating away would abort it.
+                return
+              default:
+                // Everything else — a moderator ending the call for everyone
+                // (ROOM_DELETED), a server shutdown, a closed signal — means the
+                // session is over. Without this the view simply froze on
+                // "disconnected" with no way out. `replace` keeps the dead room
+                // out of the history.
+                navigateTo('home', {}, { replace: true })
+                return
             }
           }}
           onMediaDeviceFailure={(e, kind) => {
