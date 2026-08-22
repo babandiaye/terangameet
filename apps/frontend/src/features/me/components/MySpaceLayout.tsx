@@ -5,6 +5,7 @@ import { RiDashboardLine, RiHistoryLine, RiFilmLine } from '@remixicon/react'
 import { useHomePath } from '@/features/auth/utils/useHomePath'
 import { Screen } from '@/layout/Screen'
 import { ConsoleTopBar } from '@/components/console/TopBar'
+import { ConsoleSidebarFooter } from '@/components/console/SidebarFooter'
 
 export type MySpaceSection = 'dashboard' | 'meetings' | 'recordings'
 
@@ -120,6 +121,8 @@ export const MySpaceLayout = ({
               )
             })}
           </nav>
+
+          <ConsoleSidebarFooter />
         </aside>
 
         <main

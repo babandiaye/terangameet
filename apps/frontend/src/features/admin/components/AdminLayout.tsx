@@ -13,6 +13,7 @@ import {
 import { useHomePath } from '@/features/auth/utils/useHomePath'
 import { Screen } from '@/layout/Screen'
 import { ConsoleTopBar } from '@/components/console/TopBar'
+import { ConsoleSidebarFooter } from '@/components/console/SidebarFooter'
 
 export type AdminSection =
   | 'dashboard'
@@ -135,6 +136,8 @@ export const AdminLayout = ({
               )
             })}
           </nav>
+
+          <ConsoleSidebarFooter />
         </aside>
 
         {/* Content */}
