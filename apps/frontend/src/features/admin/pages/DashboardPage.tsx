@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'wouter'
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -20,13 +20,22 @@ import {
   RiUserAddLine,
   RiRecordCircleLine,
   RiDoorOpenLine,
+  RiShieldCheckLine,
+  RiErrorWarningLine,
+  RiUserFollowLine,
+  RiTimeLine,
 } from '@remixicon/react'
 import { css } from '@/styled-system/css'
 import { useUser } from '@/features/auth/api/useUser'
-import { fetchAdminDashboard } from '../api/adminApi'
-import type { SeriesPoint, ActivityItem } from '../api/types'
+import { fetchAdminDashboard, fetchAdminStatus } from '../api/adminApi'
+import type { AdminDashboard, SeriesPoint, ActivityItem } from '../api/types'
 import { Badge } from '@/components/console/ui'
-import { formatBucket, formatRelative, formatDuration, formatDateTime } from '@/components/console/utils'
+import {
+  formatBucket,
+  formatRelative,
+  formatDuration,
+  formatDateTime,
+} from '@/components/console/utils'
 import { useTranslation } from 'react-i18next'
 import { DialogTrigger } from 'react-aria-components'
 import { Button } from '@/primitives'
@@ -43,9 +52,14 @@ export const DashboardPage = () => {
     queryFn: fetchAdminDashboard,
   })
 
-  if (isLoading) return <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
+  if (isLoading)
+    return <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
   if (isError || !data)
-    return <div className={css({ color: 'danger.600' })}>Impossible de charger le tableau de bord.</div>
+    return (
+      <div className={css({ color: 'danger.600' })}>
+        Impossible de charger le tableau de bord.
+      </div>
+    )
 
   // Prefer the given name (OIDC given_name, exposed as last_name) over the first
   // token of the full name, so "Papa Amadou Baba NDIAYE" greets "Papa Amadou Baba".
@@ -54,7 +68,13 @@ export const DashboardPage = () => {
   const t = data.totals
 
   return (
-    <div className={css({ display: 'flex', flexDirection: 'column', gap: '1.5rem' })}>
+    <div
+      className={css({
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem',
+      })}
+    >
       {/* Greeting */}
       <div
         className={css({
@@ -66,7 +86,13 @@ export const DashboardPage = () => {
         })}
       >
         <div>
-          <h2 className={css({ fontSize: '1.7rem', fontWeight: 700, color: 'greyscale.1000' })}>
+          <h2
+            className={css({
+              fontSize: '1.7rem',
+              fontWeight: 700,
+              color: 'greyscale.1000',
+            })}
+          >
             Bonjour, {firstName} <span aria-hidden>👋</span>
           </h2>
           <p className={css({ color: 'greyscale.600', marginTop: '0.2rem' })}>
@@ -75,7 +101,9 @@ export const DashboardPage = () => {
         </div>
         {/* Same components as everywhere else: creating or joining a meeting
             must behave identically wherever it is triggered from. */}
-        <div className={css({ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' })}>
+        <div
+          className={css({ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' })}
+        >
           <CreateMeetingMenu />
           <DialogTrigger>
             <Button variant="secondary">{tHome('joinMeeting')}</Button>
@@ -88,7 +116,11 @@ export const DashboardPage = () => {
       <div
         className={css({
           display: 'grid',
-          gridTemplateColumns: { base: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gridTemplateColumns: {
+            base: '1fr',
+            sm: 'repeat(2, 1fr)',
+            lg: 'repeat(4, 1fr)',
+          },
           gap: '1rem',
         })}
       >
@@ -130,21 +162,25 @@ export const DashboardPage = () => {
       <div
         className={css({
           display: 'grid',
-          gridTemplateColumns: { base: '1fr', lg: '1fr 1fr', xl: '1fr 1fr 320px' },
+          gridTemplateColumns: {
+            base: '1fr',
+            lg: '1fr 1fr',
+            xl: '1fr 1fr 320px',
+          },
           gap: '1rem',
           alignItems: 'stretch',
         })}
       >
         <TrendChart
-          title="Réunions par"
+          title="Réunions"
           series={data.series.meetings}
-          color="#5b6ef5"
+          color="#2563EB"
           valueLabel="réunions"
         />
         <TrendChart
-          title="Utilisateurs actifs par"
+          title="Utilisateurs actifs"
           series={data.series.active_users}
-          color="#22b07d"
+          color="#16A34A"
           valueLabel="utilisateurs"
         />
         <ActivityPanel items={data.recent_activity} />
@@ -152,6 +188,8 @@ export const DashboardPage = () => {
 
       {/* Recent meetings */}
       <RecentMeetings meetings={data.recent_meetings} />
+
+      <SystemBand live={data.live} totalDurationSec={t.total_duration_sec} />
     </div>
   )
 }
@@ -191,7 +229,13 @@ const StatCard = ({
         padding: '1.2rem',
       })}
     >
-      <div className={css({ display: 'flex', alignItems: 'center', gap: '0.8rem' })}>
+      <div
+        className={css({
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.8rem',
+        })}
+      >
         <div
           className={css({
             width: '48px',
@@ -207,8 +251,17 @@ const StatCard = ({
           <Icon size={24} />
         </div>
         <div>
-          <div className={css({ fontSize: '0.82rem', color: 'greyscale.600' })}>{label}</div>
-          <div className={css({ fontSize: '1.9rem', fontWeight: 700, lineHeight: 1.1, color: 'greyscale.1000' })}>
+          <div className={css({ fontSize: '0.82rem', color: 'greyscale.600' })}>
+            {label}
+          </div>
+          <div
+            className={css({
+              fontSize: '1.9rem',
+              fontWeight: 700,
+              lineHeight: 1.1,
+              color: 'greyscale.1000',
+            })}
+          >
             {value}
           </div>
         </div>
@@ -223,7 +276,12 @@ const StatCard = ({
         })}
       >
         <span
-          className={css({ display: 'inline-flex', alignItems: 'center', gap: '0.15rem', fontWeight: 700 })}
+          className={css({
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.15rem',
+            fontWeight: 700,
+          })}
           style={{ color: up ? '#1E9E6A' : '#D6453D' }}
         >
           {up ? <RiArrowUpLine size={15} /> : <RiArrowDownLine size={15} />}
@@ -237,7 +295,19 @@ const StatCard = ({
 
 /* ------------------------------------------------------------- trend chart -- */
 
-const GRAN_LABEL: Record<Gran, string> = { hour: 'Jour', day: 'Semaine', month: 'Mois' }
+// The toggle names the window you are looking at; the chart title names the
+// bucket inside it. Saying both removes the old ambiguity of a control labelled
+// "Jour" that actually drew one bar per hour.
+const GRAN_RANGE: Record<Gran, string> = {
+  hour: '24 h',
+  day: '7 jours',
+  month: '12 mois',
+}
+const GRAN_BUCKET: Record<Gran, string> = {
+  hour: 'heure',
+  day: 'jour',
+  month: 'mois',
+}
 
 const TrendChart = ({
   title,
@@ -250,9 +320,12 @@ const TrendChart = ({
   color: string
   valueLabel: string
 }) => {
-  const [gran, setGran] = useState<Gran>('day')
-  const gid = `grad-${valueLabel}`
-  const data = series[gran].map((p) => ({ label: formatBucket(p.bucket, gran), count: p.count }))
+  const [gran, setGran] = useState<Gran>('month')
+  const data = series[gran].map((p) => ({
+    label: formatBucket(p.bucket, gran),
+    count: p.count,
+  }))
+  const total = data.reduce((n, p) => n + p.count, 0)
 
   return (
     <div
@@ -277,7 +350,7 @@ const TrendChart = ({
         })}
       >
         <h3 className={css({ fontSize: '1rem', fontWeight: 700 })}>
-          {title} {GRAN_LABEL[gran].toLowerCase()}
+          {title} par {GRAN_BUCKET[gran]}
         </h3>
         <div
           className={css({
@@ -291,6 +364,8 @@ const TrendChart = ({
           {(['hour', 'day', 'month'] as Gran[]).map((g) => (
             <button
               key={g}
+              type="button"
+              aria-pressed={gran === g}
               onClick={() => setGran(g)}
               className={css({
                 padding: '0.25rem 0.7rem',
@@ -304,34 +379,51 @@ const TrendChart = ({
                 boxShadow: gran === g ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
               })}
             >
-              {GRAN_LABEL[g]}
+              {GRAN_RANGE[g]}
             </button>
           ))}
         </div>
       </div>
-      <div className={css({ width: '100%', height: '230px' })}>
+      {/* The SVG carries no text a screen reader can use, so the region states
+          the shape of the series; the tooltip stays for pointer users. */}
+      <div
+        role="img"
+        aria-label={`${title} par ${GRAN_BUCKET[gran]} sur ${GRAN_RANGE[gran]} — ${total} ${valueLabel} au total`}
+        className={css({ width: '100%', height: '230px' })}
+      >
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 5, right: 8, left: -22, bottom: 0 }}>
-            <defs>
-              <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.28} />
-                <stop offset="100%" stopColor={color} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f3" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94969c' }} axisLine={false} tickLine={false} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94969c' }} axisLine={false} tickLine={false} width={34} />
-            <Tooltip content={<ChartTooltip valueLabel={valueLabel} />} cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '4 4' }} />
-            <Area
-              type="monotone"
-              dataKey="count"
-              stroke={color}
-              strokeWidth={2.5}
-              fill={`url(#${gid})`}
-              dot={false}
-              activeDot={{ r: 5, fill: color, stroke: '#fff', strokeWidth: 2 }}
+          <BarChart
+            data={data}
+            margin={{ top: 5, right: 8, left: -22, bottom: 0 }}
+            barCategoryGap="30%"
+          >
+            {/* Solid hairline: dashed rules read as data next to bars. */}
+            <CartesianGrid stroke="#EEF0F4" vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: '#94969c' }}
+              axisLine={false}
+              tickLine={false}
             />
-          </AreaChart>
+            <YAxis
+              allowDecimals={false}
+              tick={{ fontSize: 11, fill: '#94969c' }}
+              axisLine={false}
+              tickLine={false}
+              width={34}
+            />
+            <Tooltip
+              content={<ChartTooltip valueLabel={valueLabel} />}
+              cursor={{ fill: 'rgba(15,23,42,0.04)' }}
+            />
+            {/* Capped width with a rounded cap, square on the baseline. */}
+            <Bar
+              dataKey="count"
+              fill={color}
+              maxBarSize={24}
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -358,7 +450,9 @@ const ChartTooltip = ({ active, payload, valueLabel }: TooltipProps) => {
         fontSize: '0.82rem',
       })}
     >
-      <div className={css({ fontWeight: 700, textTransform: 'capitalize' })}>{p.payload.label}</div>
+      <div className={css({ fontWeight: 700, textTransform: 'capitalize' })}>
+        {p.payload.label}
+      </div>
       <div className={css({ color: 'greyscale.600' })}>
         {p.value} {valueLabel}
       </div>
@@ -368,7 +462,10 @@ const ChartTooltip = ({ active, payload, valueLabel }: TooltipProps) => {
 
 /* ----------------------------------------------------------- activity feed -- */
 
-const ACTIVITY_ICON: Record<string, { Icon: typeof RiUserAddLine; bg: string; fg: string }> = {
+const ACTIVITY_ICON: Record<
+  string,
+  { Icon: typeof RiUserAddLine; bg: string; fg: string }
+> = {
   meeting_started: { Icon: RiUserAddLine, bg: '#EAF0FF', fg: '#3B5BDB' },
   meeting_ended: { Icon: RiVideoChatLine, bg: '#EAF0FF', fg: '#3B5BDB' },
   recording: { Icon: RiRecordCircleLine, bg: '#FFF1E2', fg: '#E8870B' },
@@ -387,15 +484,54 @@ const ActivityPanel = ({ items }: { items: ActivityItem[] }) => (
       flexDirection: 'column',
     })}
   >
-    <h3 className={css({ fontSize: '1rem', fontWeight: 700, marginBottom: '0.9rem' })}>Activité récente</h3>
+    <div
+      className={css({
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        gap: '0.5rem',
+        marginBottom: '0.9rem',
+      })}
+    >
+      <h3 className={css({ fontSize: '1rem', fontWeight: 700 })}>
+        Activité récente
+      </h3>
+      <Link
+        to="/admin/meetings"
+        className={css({
+          fontSize: '0.85rem',
+          color: 'primary.800',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+        })}
+      >
+        Voir tout
+      </Link>
+    </div>
     {items.length === 0 ? (
-      <div className={css({ color: 'greyscale.500', fontSize: '0.88rem' })}>Aucune activité récente.</div>
+      <div className={css({ color: 'greyscale.500', fontSize: '0.88rem' })}>
+        Aucune activité récente.
+      </div>
     ) : (
-      <div className={css({ display: 'flex', flexDirection: 'column', gap: '0.9rem', flexGrow: 1 })}>
+      <div
+        className={css({
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.9rem',
+          flexGrow: 1,
+        })}
+      >
         {items.map((a) => {
           const ic = ACTIVITY_ICON[a.type] ?? ACTIVITY_ICON.meeting_ended
           return (
-            <div key={a.id} className={css({ display: 'flex', gap: '0.65rem', alignItems: 'flex-start' })}>
+            <div
+              key={a.id}
+              className={css({
+                display: 'flex',
+                gap: '0.65rem',
+                alignItems: 'flex-start',
+              })}
+            >
               <div
                 className={css({
                   width: '34px',
@@ -411,7 +547,15 @@ const ActivityPanel = ({ items }: { items: ActivityItem[] }) => (
                 <ic.Icon size={18} />
               </div>
               <div className={css({ minWidth: 0 })}>
-                <div className={css({ fontSize: '0.85rem', fontWeight: 600, color: 'greyscale.900' })}>{a.title}</div>
+                <div
+                  className={css({
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: 'greyscale.900',
+                  })}
+                >
+                  {a.title}
+                </div>
                 <div
                   className={css({
                     fontSize: '0.8rem',
@@ -423,7 +567,13 @@ const ActivityPanel = ({ items }: { items: ActivityItem[] }) => (
                 >
                   « {a.subtitle} »
                 </div>
-                <div className={css({ fontSize: '0.72rem', color: 'greyscale.400', marginTop: '0.1rem' })}>
+                <div
+                  className={css({
+                    fontSize: '0.72rem',
+                    color: 'greyscale.400',
+                    marginTop: '0.1rem',
+                  })}
+                >
                   {formatRelative(a.at)}
                 </div>
               </div>
@@ -467,7 +617,11 @@ const AvatarStack = ({ count }: { count: number }) => {
           +{count - shown}
         </span>
       )}
-      {count === 0 && <span className={css({ fontSize: '0.8rem', color: 'greyscale.400' })}>—</span>}
+      {count === 0 && (
+        <span className={css({ fontSize: '0.8rem', color: 'greyscale.400' })}>
+          —
+        </span>
+      )}
     </div>
   )
 }
@@ -482,19 +636,42 @@ const RecentMeetings = ({ meetings }: { meetings: DashboardMeetingT[] }) => (
       padding: '1.2rem',
     })}
   >
-    <div className={css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem' })}>
-      <h3 className={css({ fontSize: '1rem', fontWeight: 700 })}>Réunions récentes</h3>
-      <Link to="/admin/meetings" className={css({ fontSize: '0.85rem', color: 'primary.800', fontWeight: 600 })}>
+    <div
+      className={css({
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '0.9rem',
+      })}
+    >
+      <h3 className={css({ fontSize: '1rem', fontWeight: 700 })}>
+        Réunions récentes
+      </h3>
+      <Link
+        to="/admin/meetings"
+        className={css({
+          fontSize: '0.85rem',
+          color: 'primary.800',
+          fontWeight: 600,
+        })}
+      >
         Voir toutes les réunions
       </Link>
     </div>
     {meetings.length === 0 ? (
       <div className={css({ color: 'greyscale.500', fontSize: '0.9rem' })}>
-        Aucune réunion enregistrée pour l’instant. Les sessions apparaîtront ici dès qu’une réunion démarrera.
+        Aucune réunion enregistrée pour l’instant. Les sessions apparaîtront ici
+        dès qu’une réunion démarrera.
       </div>
     ) : (
       <div className={css({ overflowX: 'auto' })}>
-        <table className={css({ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' })}>
+        <table
+          className={css({
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '0.88rem',
+          })}
+        >
           <thead>
             <tr className={css({ color: 'greyscale.500', textAlign: 'left' })}>
               <th className={th}>Réunion</th>
@@ -507,15 +684,29 @@ const RecentMeetings = ({ meetings }: { meetings: DashboardMeetingT[] }) => (
           </thead>
           <tbody>
             {meetings.map((m) => (
-              <tr key={m.id} className={css({ borderTop: '1px solid', borderColor: 'greyscale.100' })}>
+              <tr
+                key={m.id}
+                className={css({
+                  borderTop: '1px solid',
+                  borderColor: 'greyscale.100',
+                })}
+              >
                 <td className={td}>
                   <span className={css({ fontWeight: 600 })}>{m.title}</span>
                 </td>
-                <td className={td}>{m.creator?.full_name || m.creator?.email || '—'}</td>
-                <td className={td}>{formatDateTime(m.started_at)}</td>
-                <td className={td}>{m.is_active ? '—' : formatDuration(m.duration_sec)}</td>
                 <td className={td}>
-                  {m.is_active ? <Badge tone="success">En cours</Badge> : <Badge tone="neutral">Terminée</Badge>}
+                  {m.creator?.full_name || m.creator?.email || '—'}
+                </td>
+                <td className={td}>{formatDateTime(m.started_at)}</td>
+                <td className={td}>
+                  {m.is_active ? '—' : formatDuration(m.duration_sec)}
+                </td>
+                <td className={td}>
+                  {m.is_active ? (
+                    <Badge tone="success">En cours</Badge>
+                  ) : (
+                    <Badge tone="neutral">Terminée</Badge>
+                  )}
                 </td>
                 <td className={td}>
                   <AvatarStack count={m.max_participants} />
@@ -539,5 +730,203 @@ type DashboardMeetingT = {
   is_active: boolean
 }
 
-const th = css({ padding: '0.6rem 0.8rem', fontWeight: 600, fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap' })
-const td = css({ padding: '0.7rem 0.8rem', color: 'greyscale.800', verticalAlign: 'middle', whiteSpace: 'nowrap' })
+const th = css({
+  padding: '0.6rem 0.8rem',
+  fontWeight: 600,
+  fontSize: '0.76rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.03em',
+  whiteSpace: 'nowrap',
+})
+const td = css({
+  padding: '0.7rem 0.8rem',
+  color: 'greyscale.800',
+  verticalAlign: 'middle',
+  whiteSpace: 'nowrap',
+})
+
+/* ------------------------------------------------------------ system band -- */
+
+const BAND_TONES = {
+  green: { bg: '#DCFCE7', fg: '#16A34A' },
+  blue: { bg: '#DBEAFE', fg: '#2563EB' },
+  orange: { bg: '#FFEDD5', fg: '#EA580C' },
+  red: { bg: '#FEE2E2', fg: '#DC2626' },
+}
+
+/** French plural: 0 and 1 both take the singular. */
+const plural = (n: number, one: string, many: string) =>
+  `${n} ${n > 1 ? many : one}`
+
+const bandCell = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.9rem',
+  padding: '1.1rem 1.3rem',
+  minWidth: 0,
+  textDecoration: 'none',
+})
+
+// Cells are separated by a rule, which runs horizontally once they stack.
+const bandDivider = css({
+  borderTop: '1px solid',
+  borderTopColor: 'greyscale.200',
+  md: {
+    borderTopWidth: 0,
+    borderLeft: '1px solid',
+    borderLeftColor: 'greyscale.200',
+  },
+})
+
+const BandTile = ({
+  Icon,
+  tone,
+  title,
+  subtitle,
+  divider,
+  to,
+}: {
+  Icon: typeof RiShieldCheckLine
+  tone: keyof typeof BAND_TONES
+  title: string
+  subtitle: string
+  divider?: boolean
+  to?: string
+}) => {
+  const colors = BAND_TONES[tone]
+  const className = `${bandCell}${divider ? ` ${bandDivider}` : ''}`
+  const body = (
+    <>
+      <span
+        className={css({
+          width: '44px',
+          height: '44px',
+          borderRadius: '12px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        })}
+        style={{ backgroundColor: colors.bg, color: colors.fg }}
+      >
+        <Icon size={22} aria-hidden="true" />
+      </span>
+      <span className={css({ minWidth: 0 })}>
+        <span
+          className={css({
+            display: 'block',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            color: 'greyscale.1000',
+          })}
+        >
+          {title}
+        </span>
+        <span
+          className={css({
+            display: 'block',
+            fontSize: '0.8rem',
+            color: 'greyscale.600',
+          })}
+        >
+          {subtitle}
+        </span>
+      </span>
+    </>
+  )
+
+  if (!to) return <div className={className}>{body}</div>
+  return (
+    <Link
+      to={to}
+      className={`${className} ${css({ _hover: { backgroundColor: 'greyscale.50' } })}`}
+    >
+      {body}
+    </Link>
+  )
+}
+
+/**
+ * Live state of the platform, read straight from the probes and the session
+ * table. Two tiles from the mock-up are deliberately absent: storage volume,
+ * which is not measured yet, and a 30-day uptime percentage, which we cannot
+ * compute because no history of the health checks is kept.
+ */
+const SystemBand = ({
+  live,
+  totalDurationSec,
+}: {
+  live: AdminDashboard['live']
+  totalDurationSec: number
+}) => {
+  const { data: status } = useQuery({
+    queryKey: ['admin', 'status'],
+    queryFn: fetchAdminStatus,
+    // The probe reaches Postgres, Redis, LiveKit, S3 and SMTP; a minute of cache
+    // is cheaper than a full sweep on every visit and every tab focus.
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
+
+  // 'disabled' and 'unknown' are deliberate states, not failures.
+  const down = status?.components.filter((c) => c.status === 'down') ?? []
+  const healthy = down.length === 0
+
+  return (
+    <div
+      className={css({
+        backgroundColor: 'white',
+        border: '1px solid',
+        borderColor: 'greyscale.200',
+        borderRadius: '16px',
+        display: 'grid',
+        gridTemplateColumns: { base: '1fr', md: 'repeat(3, 1fr)' },
+        overflow: 'hidden',
+      })}
+    >
+      <BandTile
+        to="/admin/status"
+        Icon={healthy ? RiShieldCheckLine : RiErrorWarningLine}
+        tone={healthy ? 'green' : 'red'}
+        title={
+          !status
+            ? 'Vérification des services…'
+            : healthy
+              ? 'Tous les services opérationnels'
+              : plural(
+                  down.length,
+                  'service en incident',
+                  'services en incident'
+                )
+        }
+        subtitle={
+          status
+            ? `Dernière vérification : ${formatRelative(status.checkedAt)}`
+            : 'Sonde en cours'
+        }
+      />
+      <BandTile
+        divider
+        Icon={RiUserFollowLine}
+        tone="blue"
+        title={plural(
+          live.participants,
+          'participant en ligne',
+          'participants en ligne'
+        )}
+        subtitle={
+          live.meetings === 0
+            ? 'Aucune réunion en cours'
+            : `Dans ${plural(live.meetings, 'réunion en cours', 'réunions en cours')}`
+        }
+      />
+      <BandTile
+        divider
+        Icon={RiTimeLine}
+        tone="orange"
+        title={`${formatDuration(totalDurationSec)} de visioconférence`}
+        subtitle="Cumul depuis l’ouverture de la plateforme"
+      />
+    </div>
+  )
+}

@@ -112,6 +112,11 @@ export interface AdminDashboard {
     recordings: number
     total_duration_sec: number
   }
+  /** Connected right now, recording bots excluded. */
+  live: {
+    participants: number
+    meetings: number
+  }
   trends: {
     sessions_pct: number
     active_users_pct: number
@@ -120,7 +125,11 @@ export interface AdminDashboard {
   }
   series: {
     meetings: { hour: SeriesPoint[]; day: SeriesPoint[]; month: SeriesPoint[] }
-    active_users: { hour: SeriesPoint[]; day: SeriesPoint[]; month: SeriesPoint[] }
+    active_users: {
+      hour: SeriesPoint[]
+      day: SeriesPoint[]
+      month: SeriesPoint[]
+    }
   }
   recent_meetings: DashboardMeeting[]
   recent_activity: ActivityItem[]
