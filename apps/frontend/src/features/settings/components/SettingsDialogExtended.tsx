@@ -68,10 +68,15 @@ export const SettingsDialogExtended = (props: SettingsDialogExtended) => {
   const isWideScreen = useMediaQuery('(min-width: 800px)') // fixme - hardcoded 50rem in pixel
 
   const isAdminOrOwner = useIsAdminOrOwner()
+  // Called unconditionally, and it matters: this dialog stays mounted for the
+  // whole call, and isAdminOrOwner now flips mid-session when someone is made
+  // co-host. Behind a `&&` the hook count would change between two renders, and
+  // React would tear the tree down — taking the LiveKit room with it.
+  const areSubtitlesAvailable = useAreSubtitlesAvailable()
   // Transcription is a feature-flagged capability (ROOM_SUBTITLE_ENABLED). Hide its
   // settings tab until a transcription backend/agent is wired up; flip the flag to
   // bring it back. Kept admin-gated on top.
-  const showTranscription = isAdminOrOwner && !!useAreSubtitlesAvailable()
+  const showTranscription = isAdminOrOwner && !!areSubtitlesAvailable
 
   return (
     <Dialog innerRef={dialogEl} {...props} role="dialog" type="flex">
