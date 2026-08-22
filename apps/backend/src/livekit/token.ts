@@ -42,6 +42,10 @@ export async function generateLiveKitToken(params: GenerateTokenParams): Promise
     identity,
     name,
     metadata,
+    // Also an attribute, not only metadata: attributes are what clients read to
+    // tell moderators apart, and unlike the token's roomAdmin grant they can be
+    // flipped mid-session — which is how a co-host is promoted.
+    attributes: { room_admin: isAdminOrOwner ? 'true' : 'false' },
     ttl: '6h',
   })
 
