@@ -28,7 +28,13 @@ import {
 import { css } from '@/styled-system/css'
 import { useUser } from '@/features/auth/api/useUser'
 import { fetchAdminDashboard, fetchAdminStatus } from '../api/adminApi'
-import type { AdminDashboard, SeriesPoint, ActivityItem } from '../api/types'
+import { MeetingDetailModal } from '../components/MeetingDetailModal'
+import type {
+  AdminDashboard,
+  SeriesRange,
+  SeriesPoint,
+  ActivityItem,
+} from '../api/types'
 import { Badge } from '@/components/console/ui'
 import {
   formatBucket,
@@ -41,8 +47,6 @@ import { DialogTrigger } from 'react-aria-components'
 import { Button } from '@/primitives'
 import { CreateMeetingMenu } from '@/features/home/components/CreateMeetingMenu'
 import { JoinMeetingDialog } from '@/features/home/components/JoinMeetingDialog'
-
-type Gran = 'hour' | 'day' | 'month'
 
 export const DashboardPage = () => {
   const { user } = useUser()
@@ -141,7 +145,7 @@ export const DashboardPage = () => {
           tone="green"
         />
         <StatCard
-          label="Salles créées"
+          label="Réunions créées"
           value={t.rooms}
           trend={data.trends.rooms_pct}
           trendHint="ce mois-ci"
@@ -298,16 +302,21 @@ const StatCard = ({
 // The toggle names the window you are looking at; the chart title names the
 // bucket inside it. Saying both removes the old ambiguity of a control labelled
 // "Jour" that actually drew one bar per hour.
-const GRAN_RANGE: Record<Gran, string> = {
-  hour: '24 h',
-  day: '7 jours',
-  month: '12 mois',
+const RANGE_LABEL: Record<SeriesRange, string> = {
+  h24: '24 h',
+  d7: '7 jours',
+  d30: '1 mois',
+  m12: '12 mois',
 }
-const GRAN_BUCKET: Record<Gran, string> = {
-  hour: 'heure',
-  day: 'jour',
-  month: 'mois',
+// The bucket the title names. d7 and d30 share it: both are counted per day,
+// they differ only in how far back they reach.
+const RANGE_BUCKET: Record<SeriesRange, string> = {
+  h24: 'heure',
+  d7: 'jour',
+  d30: 'jour',
+  m12: 'mois',
 }
+const RANGES: SeriesRange[] = ['h24', 'd7', 'd30', 'm12']
 
 const TrendChart = ({
   title,
@@ -316,13 +325,13 @@ const TrendChart = ({
   valueLabel,
 }: {
   title: string
-  series: { hour: SeriesPoint[]; day: SeriesPoint[]; month: SeriesPoint[] }
+  series: Record<SeriesRange, SeriesPoint[]>
   color: string
   valueLabel: string
 }) => {
-  const [gran, setGran] = useState<Gran>('month')
-  const data = series[gran].map((p) => ({
-    label: formatBucket(p.bucket, gran),
+  const [range, setRange] = useState<SeriesRange>('d7')
+  const data = series[range].map((p) => ({
+    label: formatBucket(p.bucket, range),
     count: p.count,
   }))
   const total = data.reduce((n, p) => n + p.count, 0)
@@ -350,7 +359,7 @@ const TrendChart = ({
         })}
       >
         <h3 className={css({ fontSize: '1rem', fontWeight: 700 })}>
-          {title} par {GRAN_BUCKET[gran]}
+          {title} par {RANGE_BUCKET[range]}
         </h3>
         <div
           className={css({
@@ -361,25 +370,27 @@ const TrendChart = ({
             padding: '0.15rem',
           })}
         >
-          {(['hour', 'day', 'month'] as Gran[]).map((g) => (
+          {RANGES.map((r) => (
             <button
-              key={g}
+              key={r}
               type="button"
-              aria-pressed={gran === g}
-              onClick={() => setGran(g)}
+              aria-pressed={range === r}
+              onClick={() => setRange(r)}
               className={css({
-                padding: '0.25rem 0.7rem',
-                borderRadius: '6px',
+                // Tighter than before: four options have to sit on one row.
+                padding: '0.25rem 0.55rem',
+                borderRadius: '4px',
                 fontSize: '0.8rem',
                 fontWeight: 600,
+                whiteSpace: 'nowrap',
                 cursor: 'pointer',
                 border: 'none',
-                backgroundColor: gran === g ? 'white' : 'transparent',
-                color: gran === g ? 'primary.800' : 'greyscale.600',
-                boxShadow: gran === g ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                backgroundColor: range === r ? 'white' : 'transparent',
+                color: range === r ? 'primary.800' : 'greyscale.600',
+                boxShadow: range === r ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
               })}
             >
-              {GRAN_RANGE[g]}
+              {RANGE_LABEL[r]}
             </button>
           ))}
         </div>
@@ -388,7 +399,7 @@ const TrendChart = ({
           the shape of the series; the tooltip stays for pointer users. */}
       <div
         role="img"
-        aria-label={`${title} par ${GRAN_BUCKET[gran]} sur ${GRAN_RANGE[gran]} — ${total} ${valueLabel} au total`}
+        aria-label={`${title} par ${RANGE_BUCKET[range]} sur ${RANGE_LABEL[range]} — ${total} ${valueLabel} au total`}
         className={css({ width: '100%', height: '230px' })}
       >
         <ResponsiveContainer width="100%" height="100%">
@@ -404,6 +415,9 @@ const TrendChart = ({
               tick={{ fontSize: 11, fill: '#94969c' }}
               axisLine={false}
               tickLine={false}
+              // Over 30 buckets every label cannot fit; let recharts drop the
+              // ones that would collide rather than overlap them.
+              minTickGap={12}
             />
             <YAxis
               allowDecimals={false}
@@ -416,13 +430,9 @@ const TrendChart = ({
               content={<ChartTooltip valueLabel={valueLabel} />}
               cursor={{ fill: 'rgba(15,23,42,0.04)' }}
             />
-            {/* Capped width with a rounded cap, square on the baseline. */}
-            <Bar
-              dataKey="count"
-              fill={color}
-              maxBarSize={24}
-              radius={[4, 4, 0, 0]}
-            />
+            {/* Square caps: a rounded top eats into the bar's height, which
+                makes short bars read lower than they are. */}
+            <Bar dataKey="count" fill={color} maxBarSize={24} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -587,138 +597,121 @@ const ActivityPanel = ({ items }: { items: ActivityItem[] }) => (
 
 /* --------------------------------------------------------- recent meetings -- */
 
-const AvatarStack = ({ count }: { count: number }) => {
-  const shown = Math.min(count, 3)
-  const palette = ['#5b6ef5', '#22b07d', '#e8870b', '#d6453d']
+const RecentMeetings = ({ meetings }: { meetings: DashboardMeetingT[] }) => {
+  const [detailId, setDetailId] = useState<string | null>(null)
   return (
-    <div className={css({ display: 'flex', alignItems: 'center' })}>
-      {Array.from({ length: shown }).map((_, i) => (
-        <div
-          key={i}
+    <div
+      className={css({
+        backgroundColor: 'white',
+        border: '1px solid',
+        borderColor: 'greyscale.200',
+        borderRadius: '16px',
+        padding: '1.2rem',
+      })}
+    >
+      <div
+        className={css({
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '0.9rem',
+        })}
+      >
+        <h3 className={css({ fontSize: '1rem', fontWeight: 700 })}>
+          Réunions récentes
+        </h3>
+        <Link
+          to="/admin/meetings"
           className={css({
-            width: '26px',
-            height: '26px',
-            borderRadius: '50%',
-            border: '2px solid white',
-            marginLeft: i === 0 ? 0 : '-8px',
-          })}
-          style={{ backgroundColor: palette[i % palette.length] }}
-        />
-      ))}
-      {count > shown && (
-        <span
-          className={css({
-            marginLeft: '0.35rem',
-            fontSize: '0.78rem',
-            color: 'greyscale.600',
+            fontSize: '0.85rem',
+            color: 'primary.800',
             fontWeight: 600,
           })}
         >
-          +{count - shown}
-        </span>
+          Voir toutes les réunions
+        </Link>
+      </div>
+      {meetings.length === 0 ? (
+        <div className={css({ color: 'greyscale.500', fontSize: '0.9rem' })}>
+          Aucune réunion enregistrée pour l’instant. Les sessions apparaîtront
+          ici dès qu’une réunion démarrera.
+        </div>
+      ) : (
+        <div className={css({ overflowX: 'auto' })}>
+          <table
+            className={css({
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '0.88rem',
+            })}
+          >
+            <thead>
+              <tr
+                className={css({ color: 'greyscale.500', textAlign: 'left' })}
+              >
+                <th className={th}>Réunion</th>
+                <th className={th}>Organisateur</th>
+                <th className={th}>Date et heure</th>
+                <th className={th}>Durée</th>
+                <th className={th}>Statut</th>
+                <th className={th}>Participants</th>
+              </tr>
+            </thead>
+            <tbody>
+              {meetings.map((m) => (
+                <tr
+                  key={m.id}
+                  className={css({
+                    borderTop: '1px solid',
+                    borderColor: 'greyscale.100',
+                  })}
+                >
+                  <td className={td}>
+                    <button
+                      type="button"
+                      onClick={() => setDetailId(m.id)}
+                      className={css({
+                        fontWeight: 600,
+                        color: 'primary.800',
+                        cursor: 'pointer',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        textAlign: 'left',
+                        font: 'inherit',
+                        _hover: { textDecoration: 'underline' },
+                      })}
+                    >
+                      {m.title}
+                    </button>
+                  </td>
+                  <td className={td}>
+                    {m.creator?.full_name || m.creator?.email || '—'}
+                  </td>
+                  <td className={td}>{formatDateTime(m.started_at)}</td>
+                  <td className={td}>
+                    {m.is_active ? '—' : formatDuration(m.duration_sec)}
+                  </td>
+                  <td className={td}>
+                    {m.is_active ? (
+                      <Badge tone="success">En cours</Badge>
+                    ) : (
+                      <Badge tone="neutral">Terminée</Badge>
+                    )}
+                  </td>
+                  <td className={td}>{m.max_participants}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-      {count === 0 && (
-        <span className={css({ fontSize: '0.8rem', color: 'greyscale.400' })}>
-          —
-        </span>
+      {detailId && (
+        <MeetingDetailModal id={detailId} onClose={() => setDetailId(null)} />
       )}
     </div>
   )
 }
-
-const RecentMeetings = ({ meetings }: { meetings: DashboardMeetingT[] }) => (
-  <div
-    className={css({
-      backgroundColor: 'white',
-      border: '1px solid',
-      borderColor: 'greyscale.200',
-      borderRadius: '16px',
-      padding: '1.2rem',
-    })}
-  >
-    <div
-      className={css({
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '0.9rem',
-      })}
-    >
-      <h3 className={css({ fontSize: '1rem', fontWeight: 700 })}>
-        Réunions récentes
-      </h3>
-      <Link
-        to="/admin/meetings"
-        className={css({
-          fontSize: '0.85rem',
-          color: 'primary.800',
-          fontWeight: 600,
-        })}
-      >
-        Voir toutes les réunions
-      </Link>
-    </div>
-    {meetings.length === 0 ? (
-      <div className={css({ color: 'greyscale.500', fontSize: '0.9rem' })}>
-        Aucune réunion enregistrée pour l’instant. Les sessions apparaîtront ici
-        dès qu’une réunion démarrera.
-      </div>
-    ) : (
-      <div className={css({ overflowX: 'auto' })}>
-        <table
-          className={css({
-            width: '100%',
-            borderCollapse: 'collapse',
-            fontSize: '0.88rem',
-          })}
-        >
-          <thead>
-            <tr className={css({ color: 'greyscale.500', textAlign: 'left' })}>
-              <th className={th}>Réunion</th>
-              <th className={th}>Organisateur</th>
-              <th className={th}>Date et heure</th>
-              <th className={th}>Durée</th>
-              <th className={th}>Statut</th>
-              <th className={th}>Participants</th>
-            </tr>
-          </thead>
-          <tbody>
-            {meetings.map((m) => (
-              <tr
-                key={m.id}
-                className={css({
-                  borderTop: '1px solid',
-                  borderColor: 'greyscale.100',
-                })}
-              >
-                <td className={td}>
-                  <span className={css({ fontWeight: 600 })}>{m.title}</span>
-                </td>
-                <td className={td}>
-                  {m.creator?.full_name || m.creator?.email || '—'}
-                </td>
-                <td className={td}>{formatDateTime(m.started_at)}</td>
-                <td className={td}>
-                  {m.is_active ? '—' : formatDuration(m.duration_sec)}
-                </td>
-                <td className={td}>
-                  {m.is_active ? (
-                    <Badge tone="success">En cours</Badge>
-                  ) : (
-                    <Badge tone="neutral">Terminée</Badge>
-                  )}
-                </td>
-                <td className={td}>
-                  <AvatarStack count={m.max_participants} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </div>
-)
 
 type DashboardMeetingT = {
   id: string

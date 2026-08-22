@@ -78,6 +78,12 @@ export interface Paginated<T> {
   results: T[]
 }
 
+/**
+ * Chart windows. Each keeps its own bucket size — d7 and d30 are both daily,
+ * so naming these by bucket ('day') could not tell them apart.
+ */
+export type SeriesRange = 'h24' | 'd7' | 'd30' | 'm12'
+
 export interface SeriesPoint {
   bucket: string
   count: number
@@ -124,12 +130,8 @@ export interface AdminDashboard {
     recordings_pct: number
   }
   series: {
-    meetings: { hour: SeriesPoint[]; day: SeriesPoint[]; month: SeriesPoint[] }
-    active_users: {
-      hour: SeriesPoint[]
-      day: SeriesPoint[]
-      month: SeriesPoint[]
-    }
+    meetings: Record<SeriesRange, SeriesPoint[]>
+    active_users: Record<SeriesRange, SeriesPoint[]>
   }
   recent_meetings: DashboardMeeting[]
   recent_activity: ActivityItem[]

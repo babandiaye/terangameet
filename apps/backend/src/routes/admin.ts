@@ -95,42 +95,60 @@ type Bucket = { bucket: Date; count: bigint | number };
 const toSeries = (rows: Bucket[]) =>
   rows.map((r) => ({ bucket: r.bucket, count: Number(r.count) }));
 
+/**
+ * One gap-filled series. Each range keeps its own bucket size: a 30-day window
+ * counted per hour would be 720 unreadable bars, and 12 months counted per day
+ * would be 365. The key names the window the reader picked, not the bucket.
+ */
+const SERIES_SQL = {
+  h24: (metric: Prisma.Sql) => Prisma.sql`
+    WITH b AS (SELECT generate_series(date_trunc('hour', now()) - interval '23 hours', date_trunc('hour', now()), interval '1 hour') AS bucket)
+    SELECT b.bucket, ${metric} AS count
+    FROM b LEFT JOIN meeting_sessions s ON date_trunc('hour', s."startedAt") = b.bucket
+    GROUP BY b.bucket ORDER BY b.bucket`,
+  d7: (metric: Prisma.Sql) => Prisma.sql`
+    WITH b AS (SELECT generate_series(date_trunc('day', now()) - interval '6 days', date_trunc('day', now()), interval '1 day') AS bucket)
+    SELECT b.bucket, ${metric} AS count
+    FROM b LEFT JOIN meeting_sessions s ON date_trunc('day', s."startedAt") = b.bucket
+    GROUP BY b.bucket ORDER BY b.bucket`,
+  d30: (metric: Prisma.Sql) => Prisma.sql`
+    WITH b AS (SELECT generate_series(date_trunc('day', now()) - interval '29 days', date_trunc('day', now()), interval '1 day') AS bucket)
+    SELECT b.bucket, ${metric} AS count
+    FROM b LEFT JOIN meeting_sessions s ON date_trunc('day', s."startedAt") = b.bucket
+    GROUP BY b.bucket ORDER BY b.bucket`,
+  m12: (metric: Prisma.Sql) => Prisma.sql`
+    WITH b AS (SELECT generate_series(date_trunc('month', now()) - interval '11 months', date_trunc('month', now()), interval '1 month') AS bucket)
+    SELECT b.bucket, ${metric} AS count
+    FROM b LEFT JOIN meeting_sessions s ON date_trunc('month', s."startedAt") = b.bucket
+    GROUP BY b.bucket ORDER BY b.bucket`,
+} as const;
+
+const SERIES_RANGES = ["h24", "d7", "d30", "m12"] as const;
+const COUNT_MEETINGS = Prisma.sql`count(s.id)::int`;
+const COUNT_CREATORS = Prisma.sql`count(distinct s."creatorId")::int`;
+
+/** The four ranges of one metric, fetched concurrently. */
+async function seriesSet(metric: Prisma.Sql) {
+  const [h24, d7, d30, m12] = await Promise.all(
+    SERIES_RANGES.map((r) => prisma.$queryRaw<Bucket[]>(SERIES_SQL[r](metric))),
+  );
+  return {
+    h24: toSeries(h24),
+    d7: toSeries(d7),
+    d30: toSeries(d30),
+    m12: toSeries(m12),
+  };
+}
+
 /* -------------------------------------------------------------- dashboard -- */
 
 /** Rich, single-call payload for the admin dashboard (cards, charts, feeds). */
 adminRouter.get("/dashboard/", async (_req, res) => {
   // --- Time series, gap-filled so the charts stay continuous even with zeros.
-  const meetingsByHour = await prisma.$queryRaw<Bucket[]>(Prisma.sql`
-    WITH h AS (SELECT generate_series(date_trunc('hour', now()) - interval '23 hours', date_trunc('hour', now()), interval '1 hour') AS b)
-    SELECT h.b AS bucket, count(s.id)::int AS count
-    FROM h LEFT JOIN meeting_sessions s ON date_trunc('hour', s."startedAt") = h.b
-    GROUP BY h.b ORDER BY h.b`);
-  const meetingsByDay = await prisma.$queryRaw<Bucket[]>(Prisma.sql`
-    WITH d AS (SELECT generate_series(date_trunc('day', now()) - interval '6 days', date_trunc('day', now()), interval '1 day') AS b)
-    SELECT d.b AS bucket, count(s.id)::int AS count
-    FROM d LEFT JOIN meeting_sessions s ON date_trunc('day', s."startedAt") = d.b
-    GROUP BY d.b ORDER BY d.b`);
-  const meetingsByMonth = await prisma.$queryRaw<Bucket[]>(Prisma.sql`
-    WITH m AS (SELECT generate_series(date_trunc('month', now()) - interval '11 months', date_trunc('month', now()), interval '1 month') AS b)
-    SELECT m.b AS bucket, count(s.id)::int AS count
-    FROM m LEFT JOIN meeting_sessions s ON date_trunc('month', s."startedAt") = m.b
-    GROUP BY m.b ORDER BY m.b`);
-
-  const usersByHour = await prisma.$queryRaw<Bucket[]>(Prisma.sql`
-    WITH h AS (SELECT generate_series(date_trunc('hour', now()) - interval '23 hours', date_trunc('hour', now()), interval '1 hour') AS b)
-    SELECT h.b AS bucket, count(distinct s."creatorId")::int AS count
-    FROM h LEFT JOIN meeting_sessions s ON date_trunc('hour', s."startedAt") = h.b
-    GROUP BY h.b ORDER BY h.b`);
-  const usersByDay = await prisma.$queryRaw<Bucket[]>(Prisma.sql`
-    WITH d AS (SELECT generate_series(date_trunc('day', now()) - interval '6 days', date_trunc('day', now()), interval '1 day') AS b)
-    SELECT d.b AS bucket, count(distinct s."creatorId")::int AS count
-    FROM d LEFT JOIN meeting_sessions s ON date_trunc('day', s."startedAt") = d.b
-    GROUP BY d.b ORDER BY d.b`);
-  const usersByMonth = await prisma.$queryRaw<Bucket[]>(Prisma.sql`
-    WITH m AS (SELECT generate_series(date_trunc('month', now()) - interval '11 months', date_trunc('month', now()), interval '1 month') AS b)
-    SELECT m.b AS bucket, count(distinct s."creatorId")::int AS count
-    FROM m LEFT JOIN meeting_sessions s ON date_trunc('month', s."startedAt") = m.b
-    GROUP BY m.b ORDER BY m.b`);
+  const [meetingSeries, activeUserSeries] = await Promise.all([
+    seriesSet(COUNT_MEETINGS),
+    seriesSet(COUNT_CREATORS),
+  ]);
 
   // --- Totals & week/month-over-prior trends.
   const [totalsRow] = await prisma.$queryRaw<
@@ -260,16 +278,8 @@ adminRouter.get("/dashboard/", async (_req, res) => {
       recordings_pct: pct(rc.cur, rc.prev),
     },
     series: {
-      meetings: {
-        hour: toSeries(meetingsByHour),
-        day: toSeries(meetingsByDay),
-        month: toSeries(meetingsByMonth),
-      },
-      active_users: {
-        hour: toSeries(usersByHour),
-        day: toSeries(usersByDay),
-        month: toSeries(usersByMonth),
-      },
+      meetings: meetingSeries,
+      active_users: activeUserSeries,
     },
     recent_meetings: recentMeetings.map((s) => ({
       id: s.id,
