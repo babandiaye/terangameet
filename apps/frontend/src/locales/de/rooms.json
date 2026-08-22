@@ -553,16 +553,16 @@
       "title": "Meeting-Moderation",
       "description": "Diese Einstellungen beschränken die Aktionen, die Teilnehmende während des Meetings durchführen können.",
       "microphone": {
-        "label": "Mikrofon einschalten",
-        "description": ""
+        "label": "Ihr Mikrofon verwenden",
+        "description": "Wenn du diese Option deaktivierst, können Teilnehmende ihr Mikrofon nicht mehr einschalten. Offene Mikrofone werden sofort stummgeschaltet. Moderierende sind nicht betroffen."
       },
       "camera": {
-        "label": "Video einschalten",
-        "description": ""
+        "label": "Ihre Kamera verwenden",
+        "description": "Wenn du diese Option deaktivierst, können Teilnehmende ihre Kamera nicht mehr einschalten. Laufende Videos werden sofort beendet. Moderierende sind nicht betroffen."
       },
       "screenshare": {
         "label": "Bildschirm teilen",
-        "description": "Wenn du diese Option deaktivierst, können Teilnehmende ihren Bildschirm nicht mehr teilen. Laufende Bildschirmfreigaben werden sofort beendet."
+        "description": "Wenn du diese Option deaktivierst, können Teilnehmende ihren Bildschirm nicht mehr teilen. Laufende Bildschirmfreigaben werden sofort beendet. Moderierende sind nicht betroffen."
       },
       "mute": {
         "label": "Andere stummschalten",

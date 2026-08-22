@@ -553,16 +553,16 @@
       "title": "Moderatie van de vergadering",
       "description": "Deze instellingen beperken de acties die deelnemers tijdens de vergadering kunnen uitvoeren.",
       "microphone": {
-        "label": "Microfoon inschakelen",
-        "description": ""
+        "label": "Hun microfoon gebruiken",
+        "description": "Als u deze optie uitschakelt, kunnen deelnemers hun microfoon niet meer inschakelen en wordt elke open microfoon direct gedempt. Hosts en co-hosts vallen hier niet onder."
       },
       "camera": {
-        "label": "Video inschakelen",
-        "description": ""
+        "label": "Hun camera gebruiken",
+        "description": "Als u deze optie uitschakelt, kunnen deelnemers hun camera niet meer inschakelen en wordt lopende video direct gestopt. Hosts en co-hosts vallen hier niet onder."
       },
       "screenshare": {
         "label": "Hun scherm delen",
-        "description": "Als u deze optie uitschakelt, kunnen deelnemers hun scherm niet meer delen en wordt elke lopende schermdeling onmiddellijk gestopt."
+        "description": "Als u deze optie uitschakelt, kunnen deelnemers hun scherm niet meer delen en wordt elke lopende schermdeling onmiddellijk gestopt. Hosts en co-hosts vallen hier niet onder."
       },
       "mute": {
         "label": "Anderen dempen",

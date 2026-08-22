@@ -553,16 +553,16 @@
       "title": "Modération de la réunion",
       "description": "Ces paramètres limitent les actions possibles des contributeurs pendant la réunion.",
       "microphone": {
-        "label": "Allumer le micro",
-        "description": ""
+        "label": "Utiliser leur micro",
+        "description": "En désactivant cette option, les participants ne pourront plus activer leur micro, et tout micro ouvert sera coupé immédiatement. Les organisateurs et co-animateurs ne sont pas concernés."
       },
       "camera": {
-        "label": "Activer la vidéo",
-        "description": ""
+        "label": "Utiliser leur caméra",
+        "description": "En désactivant cette option, les participants ne pourront plus activer leur caméra, et toute vidéo en cours sera coupée immédiatement. Les organisateurs et co-animateurs ne sont pas concernés."
       },
       "screenshare": {
         "label": "Partager leur écran",
-        "description": "En désactivant cette option, les participants ne pourront plus partager leur écran et tout partage en cours sera immédiatement interrompu."
+        "description": "En désactivant cette option, les participants ne pourront plus partager leur écran et tout partage en cours sera immédiatement interrompu. Les organisateurs et co-animateurs ne sont pas concernés."
       },
       "mute": {
         "label": "Muter les autres",

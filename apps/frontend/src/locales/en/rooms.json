@@ -553,16 +553,16 @@
       "title": "Meeting Moderation",
       "description": "These settings restrict the actions contributors can take during the meeting.",
       "microphone": {
-        "label": "Turn on microphone",
-        "description": ""
+        "label": "Use their microphone",
+        "description": "Disabling this option prevents participants from turning their microphone on, and any open microphone is muted immediately. Hosts and co-hosts are unaffected."
       },
       "camera": {
-        "label": "Enable video",
-        "description": ""
+        "label": "Use their camera",
+        "description": "Disabling this option prevents participants from turning their camera on, and any running video is stopped immediately. Hosts and co-hosts are unaffected."
       },
       "screenshare": {
         "label": "Share their screen",
-        "description": "Disabling this option will prevent participants from sharing their screen, and any ongoing screen sharing will be stopped immediately."
+        "description": "Disabling this option will prevent participants from sharing their screen, and any ongoing screen sharing will be stopped immediately. Hosts and co-hosts are unaffected."
       },
       "mute": {
         "label": "Mute others",
