@@ -33,6 +33,7 @@ import { ApiLobbyStatus, type ApiRequestEntry } from '../api/requestEntry'
 import { Spinner } from '@/primitives/Spinner'
 import { ApiAccessLevel } from '../api/ApiRoom'
 import { useLoginHint } from '@/hooks/useLoginHint'
+import { useUser } from '@/features/auth/api/useUser'
 import { openPermissionsDialog } from '@/stores/permissions'
 import { useResolveInitiallyDefaultDeviceId } from '../livekit/hooks/useResolveInitiallyDefaultDeviceId'
 import { isSafari } from '@/utils/livekit'
@@ -330,6 +331,7 @@ export const Join = ({
   })
 
   const { openLoginHint } = useLoginHint()
+  const { user, isLoggedIn } = useUser()
 
   const handleSubmit = async () => {
     const { data } = await refetchRoom()
@@ -440,20 +442,31 @@ export const Join = ({
               <H lvl={1} margin="sm" centered>
                 {t('heading')}
               </H>
-              <Field
-                type="text"
-                onChange={saveUsername}
-                label={t('usernameLabel')}
-                id="input-name"
-                defaultValue={username}
-                validate={(value) => !value && t('errors.usernameEmpty')}
-                wrapperProps={{
-                  noMargin: true,
-                  fullWidth: true,
-                }}
-                autoComplete="name"
-                maxLength={50}
-              />
+              {/* Signed-in participants are named by their account, so there
+                  is nothing to ask — and asking would imply a choice the
+                  server does not honour. Guests still name themselves. */}
+              {isLoggedIn ? (
+                <Text variant="note" centered>
+                  {t('joiningAs', {
+                    name: user?.full_name || user?.email || '',
+                  })}
+                </Text>
+              ) : (
+                <Field
+                  type="text"
+                  onChange={saveUsername}
+                  label={t('usernameLabel')}
+                  id="input-name"
+                  defaultValue={username}
+                  validate={(value) => !value && t('errors.usernameEmpty')}
+                  wrapperProps={{
+                    noMargin: true,
+                    fullWidth: true,
+                  }}
+                  autoComplete="name"
+                  maxLength={50}
+                />
+              )}
             </VStack>
           </Form>
         )

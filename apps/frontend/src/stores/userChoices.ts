@@ -94,6 +94,47 @@ export const saveUsername = (username: string) => {
   userChoicesStore.username = username
 }
 
+/**
+ * localStorage key holding the account the stored display name belongs to.
+ * Kept separate from LiveKit's own blob so their format stays theirs.
+ */
+const USERNAME_OWNER_KEY = 'terangameet.username-owner'
+
+/**
+ * Drop a display name inherited from somebody else.
+ *
+ * The chosen name is persisted in localStorage, so it outlives the session that
+ * set it: on a shared browser the next person to sign in would create and join
+ * meetings under the previous user's name. Binding the name to the account that
+ * chose it, and resetting it the moment the account changes, fixes that without
+ * touching the in-session rename — that one is a deliberate act, this only
+ * rejects a name nobody in this session ever typed.
+ *
+ * `ownerId` is null for anonymous visitors, whose typed name is theirs to keep.
+ */
+export const reconcileUsernameOwner = (
+  ownerId: string | null,
+  ownerName: string
+) => {
+  let stored: string | null
+  try {
+    stored = localStorage.getItem(USERNAME_OWNER_KEY)
+  } catch {
+    return // storage unavailable (private mode): nothing persisted, nothing to fix
+  }
+  if (stored === ownerId) return
+
+  // Prefill with who they actually are rather than blanking: the waiting-room
+  // field requires a name, and an empty one would just make them retype it.
+  userChoicesStore.username = ownerName
+  try {
+    if (ownerId === null) localStorage.removeItem(USERNAME_OWNER_KEY)
+    else localStorage.setItem(USERNAME_OWNER_KEY, ownerId)
+  } catch {
+    /* best effort */
+  }
+}
+
 export const saveNoiseReductionEnabled = (enabled: boolean) => {
   userChoicesStore.noiseReductionEnabled = enabled
 }

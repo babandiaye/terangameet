@@ -12,6 +12,8 @@ import { ApiRoom } from '@/features/rooms/api/ApiRoom'
 import { loadUserChoices } from '@livekit/components-core'
 
 export const CreateMeetingMenu = () => {
+  // Only meaningful for guests: for a signed-in creator the server names the
+  // participant from their account and ignores anything sent here.
   const { username } = loadUserChoices()
 
   const { t } = useTranslation('home')

@@ -12,6 +12,7 @@ import { routes } from './routes'
 import './i18n/init'
 import { queryClient } from '@/api/queryClient'
 import { AppInitialization } from '@/components/AppInitialization'
+import { UsernameOwnerGuard } from '@/features/auth/components/UsernameOwnerGuard'
 import { useIsSdkContext } from '@/features/sdk/hooks/useIsSdkContext'
 import { useApplyA11yFonts } from '@/hooks/useApplyA11yFonts'
 
@@ -28,6 +29,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       {!isSDKContext && <AppInitialization />}
+      {/* Unconditional: a stale display name is a browser-level problem, so it
+          has to be caught in the embedded SDK context too. */}
+      <UsernameOwnerGuard />
       <Suspense fallback={null}>
         <I18nProvider locale={i18n.language}>
           <Layout>

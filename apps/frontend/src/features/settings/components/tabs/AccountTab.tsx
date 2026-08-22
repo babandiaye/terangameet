@@ -29,8 +29,11 @@ export const AccountTab = ({ id, onOpenChange }: AccountTabProps) => {
 
   const handleOnSubmit = async () => {
     try {
-      if (room) await renameParticipant(name)
-      saveUsername(name)
+      // Nothing to rename when the name comes from the account.
+      if (!isLoggedIn) {
+        if (room) await renameParticipant(name)
+        saveUsername(name)
+      }
       onOpenChange?.(false) // only close on success
     } catch (error) {
       console.error(
@@ -45,15 +48,20 @@ export const AccountTab = ({ id, onOpenChange }: AccountTabProps) => {
   return (
     <TabPanel padding={'md'} flex id={id}>
       <H lvl={2}>{t('account.heading')}</H>
-      <Field
-        type="text"
-        label={t('account.nameLabel')}
-        value={name}
-        onChange={setName}
-        validate={(value) => {
-          return !value ? <p>{t('account.nameError')}</p> : null
-        }}
-      />
+      {/* Only guests choose a name. A signed-in participant is named by their
+          Keycloak account, and the server refuses a rename, so offering the
+          field here would promise something that cannot happen. */}
+      {!isLoggedIn && (
+        <Field
+          type="text"
+          label={t('account.nameLabel')}
+          value={name}
+          onChange={setName}
+          validate={(value) => {
+            return !value ? <p>{t('account.nameError')}</p> : null
+          }}
+        />
+      )}
       <H lvl={2}>{t('account.authentication')}</H>
       {isLoggedIn ? (
         <>

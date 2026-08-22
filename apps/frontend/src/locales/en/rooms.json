@@ -80,7 +80,8 @@
     "timeoutInvite": {
       "title": "You cannot join this call",
       "body": "No one responded to your request"
-    }
+    },
+    "joiningAs": "You will join as {{name}}"
   },
   "leaveRoomPrompt": "This will make you leave the meeting.",
   "shareDialog": {
