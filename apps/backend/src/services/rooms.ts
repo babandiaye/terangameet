@@ -163,11 +163,23 @@ export function serializeEphemeralRoom(slug: string, opts: SerializeOpts) {
   };
 }
 
-/** Resolve which sources a participant may publish for a given room config. */
+/**
+ * Which sources a participant may publish, for a given room config.
+ *
+ * The moderation switches limit contributors, not moderators: the in-session
+ * permission update already skips admins, so a moderator who reloads after
+ * turning off microphones must not come back without their own.
+ *
+ * An explicit empty list means "nothing may be published" and is honoured as
+ * such; only a missing key means "never configured". Treating [] as unset made
+ * turning everything off silently restore the defaults on the next join.
+ */
 export function publishableSources(
   config: RoomConfiguration | null | undefined,
+  isAdminOrOwner = false,
 ): string[] {
+  if (isAdminOrOwner) return env.livekit.defaultSources;
   const sources = config?.can_publish_sources;
-  if (Array.isArray(sources) && sources.length > 0) return sources;
+  if (Array.isArray(sources)) return sources;
   return env.livekit.defaultSources;
 }

@@ -98,7 +98,7 @@ roomsRouter.post("/", requireAuth, async (req, res) => {
     room: room.id,
     identity: participantIdentity(req),
     name: displayName(req, username),
-    sources: publishableSources(room.configuration as RoomConfiguration),
+    sources: publishableSources(room.configuration as RoomConfiguration, admin),
     isAdminOrOwner: admin,
   });
 
@@ -168,7 +168,7 @@ roomsRouter.get("/:roomId", async (req, res) => {
     room: room.id,
     identity: participantIdentity(req),
     name: displayName(req, username),
-    sources: publishableSources(room.configuration as RoomConfiguration),
+    sources: publishableSources(room.configuration as RoomConfiguration, admin),
     isAdminOrOwner: admin,
   });
 
