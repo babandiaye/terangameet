@@ -23,6 +23,10 @@
     "warning": {
       "title": "Link sharing disabled",
       "body": "Sharing the recording via link is not yet available. Only hosts can download it."
+    },
+    "player": {
+      "unsupported": "Your browser cannot play this format. Use the download button below.",
+      "label": "Recording player"
     }
   }
 }

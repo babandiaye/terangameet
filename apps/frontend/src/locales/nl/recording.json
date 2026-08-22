@@ -23,6 +23,10 @@
     "warning": {
       "title": "Delen via link uitgeschakeld",
       "body": "Het delen van de opname via een link is nog niet beschikbaar. Alleen hosts kunnen deze downloaden."
+    },
+    "player": {
+      "unsupported": "Uw browser kan dit formaat niet afspelen. Gebruik de downloadknop hieronder.",
+      "label": "Opnamespeler"
     }
   }
 }

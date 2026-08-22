@@ -23,6 +23,10 @@
     "warning": {
       "title": "Partage via lien désactivé",
       "body": "Le partage de l'enregistrement via lien n'est pas encore disponible. Seuls les organisateurs peuvent le télécharger."
+    },
+    "player": {
+      "unsupported": "Votre navigateur ne sait pas lire ce format. Utilisez le bouton de téléchargement ci-dessous.",
+      "label": "Lecteur de l’enregistrement"
     }
   }
 }

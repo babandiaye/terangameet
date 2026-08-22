@@ -14,7 +14,7 @@ import { formatDate } from '@/utils/formatDate'
 import { ErrorScreen } from '@/components/ErrorScreen'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { fetchRecording } from '../api/fetchRecording'
-import { RecordingStatus } from '@/features/recording'
+import { RecordingMode, RecordingStatus } from '@/features/recording'
 import { useConfig } from '@/api/useConfig'
 
 const APP_TITLE = import.meta.env.VITE_APP_TITLE ?? ''
@@ -40,6 +40,59 @@ const BetaBadge = () => (
     Beta
   </span>
 )
+
+/**
+ * Plays the recording in place. The media route serves byte ranges, so the
+ * browser fetches only what it needs and seeking works; `preload="metadata"`
+ * keeps the initial load to the header rather than the whole file.
+ */
+const RecordingPlayer = ({
+  src,
+  isAudio,
+  label,
+  fallback,
+}: {
+  src: string
+  isAudio: boolean
+  label: string
+  fallback: string
+}) => {
+  const shared = {
+    src,
+    controls: true,
+    preload: 'metadata' as const,
+    'aria-label': label,
+    className: css({
+      width: '100%',
+      borderRadius: '12px',
+      backgroundColor: 'black',
+      display: 'block',
+    }),
+  }
+  return (
+    <div
+      className={css({
+        width: '100%',
+        maxWidth: '46rem',
+        marginBottom: '1.25rem',
+      })}
+    >
+      {/* jsx-a11y/media-has-caption is disabled below on purpose: no caption
+          file is produced for meeting recordings today. An empty <track> would
+          announce captions that do not exist, which misleads assistive tech more
+          than their absence does. Generating them is the real fix. */}
+      {isAudio ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio {...shared}>{fallback}</audio>
+      ) : (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video {...shared} playsInline>
+          {fallback}
+        </video>
+      )}
+    </div>
+  )
+}
 
 const RecordingDownload = () => {
   const { t } = useTranslation('recording')
@@ -114,13 +167,6 @@ const RecordingDownload = () => {
       <Screen layout="centered" footer={false}>
         <Center>
           <VStack>
-            <img
-              src="/assets/intro-slider/4.png"
-              alt={''}
-              className={css({
-                maxHeight: '309px',
-              })}
-            />
             <H lvl={1} centered>
               {t('success.title')}
             </H>
@@ -142,8 +188,17 @@ const RecordingDownload = () => {
                 )}
               </span>
             </Text>
+            <RecordingPlayer
+              src={apiUrl(`recordings/${data.id}/media/`)}
+              isAudio={data.mode === RecordingMode.Transcript}
+              label={t('success.player.label')}
+              fallback={t('success.player.unsupported')}
+            />
+
+            {/* ?download=1 flips the disposition back to `attachment`; without it
+                the same URL now plays in the tab instead of saving. */}
             <LinkButton
-              href={apiUrl(`recordings/${data.id}/media/`)}
+              href={apiUrl(`recordings/${data.id}/media/?download=1`)}
               download={`${data.room.name}-${formatDate(data.created_at)}`}
             >
               {t('success.button')}

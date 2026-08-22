@@ -23,6 +23,10 @@
     "warning": {
       "title": "Linkfreigabe deaktiviert",
       "body": "Die Freigabe der Aufzeichnung per Link ist noch nicht verfügbar. Nur Hosts können sie herunterladen."
+    },
+    "player": {
+      "unsupported": "Ihr Browser kann dieses Format nicht abspielen. Verwenden Sie die Schaltfläche zum Herunterladen.",
+      "label": "Aufzeichnungs-Player"
     }
   }
 }
