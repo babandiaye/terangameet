@@ -2,6 +2,7 @@ import { supportsScreenSharing } from '@livekit/components-core'
 import type { ControlBarAuxProps } from './ControlBar'
 import { css } from '@/styled-system/css'
 import { LeaveButton } from '../../components/controls/LeaveButton'
+import { EndMeetingButton } from '../../components/controls/EndMeetingButton'
 import { Track } from 'livekit-client'
 import { HandToggle } from '../../components/controls/HandToggle'
 import { ScreenShareToggle } from '../../components/controls/ScreenShareToggle'
@@ -88,6 +89,7 @@ export function DesktopControlBar({
         <NotesToggle />
         <DashboardToggle />
         <OptionsButton />
+        <EndMeetingButton />
         <LeaveButton />
         <StartMediaButton />
       </ControlBarRegion>

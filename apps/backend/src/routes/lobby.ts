@@ -115,6 +115,7 @@ lobbyRouter.get("/:roomId/waiting-participants/", async (req, res) => {
     userId: req.user?.id,
     livekitRoom: req.livekit?.room,
     livekitIsAdmin: req.livekit?.isAdmin,
+    livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
     return res.status(403).json({ detail: "Insufficient privileges." });
@@ -147,6 +148,7 @@ lobbyRouter.post("/:roomId/enter/", async (req, res) => {
     userId: req.user?.id,
     livekitRoom: req.livekit?.room,
     livekitIsAdmin: req.livekit?.isAdmin,
+    livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
     return res.status(403).json({ detail: "Insufficient privileges." });

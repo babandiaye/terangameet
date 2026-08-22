@@ -242,6 +242,13 @@
         "party-popper": "Konfettikanone",
         "folded-hands": "Gefaltete Hände"
       }
+    },
+    "endMeeting": {
+      "tooltip": "Besprechung für alle beenden",
+      "heading": "Besprechung für alle beenden",
+      "description": "Alle Teilnehmenden werden getrennt und die Besprechung wird beendet. Dies kann nicht rückgängig gemacht werden.",
+      "cancel": "Abbrechen",
+      "confirm": "Für alle beenden"
     }
   },
   "pictureInPicture": {
@@ -636,6 +643,14 @@
     "pin": {
       "label": "Anheften",
       "ariaLabel": "Hefte {{name}} an"
+    },
+    "grantCoHost": {
+      "label": "Als Co-Moderator festlegen",
+      "ariaLabel": "{{name}} als Co-Moderator festlegen"
+    },
+    "revokeCoHost": {
+      "label": "Co-Moderator-Rolle entziehen",
+      "ariaLabel": "{{name}} die Co-Moderator-Rolle entziehen"
     }
   },
   "pinAnnouncements": {

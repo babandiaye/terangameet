@@ -3,6 +3,7 @@ import type { Participant } from 'livekit-client'
 import { useIsAdminOrOwner } from '@/features/rooms/livekit/hooks/useIsAdminOrOwner'
 import { PinMenuItem } from './PinMenuItem'
 import { RemoveMenuItem } from './RemoveMenuItem'
+import { CoHostMenuItem } from './CoHostMenuItem'
 
 export const ParticipantMenu = ({
   participant,
@@ -18,6 +19,7 @@ export const ParticipantMenu = ({
       }}
     >
       <PinMenuItem participant={participant} />
+      {canModerateParticipant && <CoHostMenuItem participant={participant} />}
       {canModerateParticipant && <RemoveMenuItem participant={participant} />}
     </RACMenu>
   )

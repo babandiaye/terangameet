@@ -242,6 +242,13 @@
         "party-popper": "party popper",
         "folded-hands": "folded hands"
       }
+    },
+    "endMeeting": {
+      "tooltip": "End the meeting for everyone",
+      "heading": "End the meeting for everyone",
+      "description": "Everyone will be disconnected and the meeting will be closed. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "End for everyone"
     }
   },
   "pictureInPicture": {
@@ -636,6 +643,14 @@
     "pin": {
       "label": "Pin",
       "ariaLabel": "Pin {{name}}"
+    },
+    "grantCoHost": {
+      "label": "Make co-host",
+      "ariaLabel": "Make {{name}} co-host"
+    },
+    "revokeCoHost": {
+      "label": "Remove co-host role",
+      "ariaLabel": "Remove co-host role from {{name}}"
     }
   },
   "pinAnnouncements": {

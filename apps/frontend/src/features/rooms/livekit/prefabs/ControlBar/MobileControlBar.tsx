@@ -4,6 +4,7 @@ import type { ControlBarAuxProps } from './ControlBar'
 import React from 'react'
 import { css } from '@/styled-system/css'
 import { LeaveButton } from '../../components/controls/LeaveButton'
+import { EndMeetingButton } from '../../components/controls/EndMeetingButton'
 import { Track } from 'livekit-client'
 import { HandToggle } from '../../components/controls/HandToggle'
 import { Button } from '@/primitives/Button'
@@ -109,6 +110,13 @@ export function MobileControlBar({
                 onPress={() => setIsMenuOpened(false)}
               />
             )}
+            {/* In the menu rather than the bar: the bar already carries six
+                controls at 360px, and ending a call is a deliberate, rare act. */}
+            <EndMeetingButton
+              variant="primaryTextDark"
+              description={true}
+              onPress={() => setIsMenuOpened(false)}
+            />
             <ChatToggle
               description={true}
               onPress={() => setIsMenuOpened(false)}

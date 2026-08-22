@@ -242,6 +242,13 @@
         "party-popper": "feestknaller",
         "folded-hands": "gevouwen handen"
       }
+    },
+    "endMeeting": {
+      "tooltip": "Vergadering voor iedereen beëindigen",
+      "heading": "Vergadering voor iedereen beëindigen",
+      "description": "Alle deelnemers worden losgekoppeld en de vergadering wordt gesloten. Dit kan niet ongedaan worden gemaakt.",
+      "cancel": "Annuleren",
+      "confirm": "Voor iedereen beëindigen"
     }
   },
   "pictureInPicture": {
@@ -636,6 +643,14 @@
     "pin": {
       "label": "Pinnen",
       "ariaLabel": "Maak {{name}} vast"
+    },
+    "grantCoHost": {
+      "label": "Tot co-host maken",
+      "ariaLabel": "{{name}} tot co-host maken"
+    },
+    "revokeCoHost": {
+      "label": "Co-hostrol verwijderen",
+      "ariaLabel": "Co-hostrol van {{name}} verwijderen"
     }
   },
   "pinAnnouncements": {

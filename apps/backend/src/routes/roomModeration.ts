@@ -1,7 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
 import { roomService } from "../livekit/client";
-import { authorizeModeration } from "../services/rooms";
+import {
+  authorizeModeration,
+  isAdminOrOwner,
+  resolveRoom,
+  roleForIdentity,
+  ROOM_ADMIN_ATTRIBUTE,
+} from "../services/rooms";
 import { logger } from "../lib/logger";
 
 export const roomModerationRouter = Router();
@@ -73,6 +79,7 @@ roomModerationRouter.post("/:roomId/mute-participant/", async (req, res) => {
     userId: req.user?.id,
     livekitRoom: req.livekit?.room,
     livekitIsAdmin: req.livekit?.isAdmin,
+    livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
     return res.status(403).json({ detail: "Insufficient privileges." });
@@ -111,6 +118,7 @@ roomModerationRouter.post("/:roomId/remove-participant/", async (req, res) => {
     userId: req.user?.id,
     livekitRoom: req.livekit?.room,
     livekitIsAdmin: req.livekit?.isAdmin,
+    livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
     return res.status(403).json({ detail: "Insufficient privileges." });
@@ -141,6 +149,7 @@ roomModerationRouter.post("/:roomId/update-participant/", async (req, res) => {
     userId: req.user?.id,
     livekitRoom: req.livekit?.room,
     livekitIsAdmin: req.livekit?.isAdmin,
+    livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
     return res.status(403).json({ detail: "Insufficient privileges." });
@@ -181,5 +190,81 @@ roomModerationRouter.post("/:roomId/update-participant/", async (req, res) => {
   } catch (err) {
     logger.error("[moderation] update-participant failed", err);
     res.status(502).json({ detail: "Unable to update participant." });
+  }
+});
+
+/**
+ * POST /:roomId/promote-participant/ — grant or revoke co-host for this session.
+ *
+ * Deliberately not persisted: the standing lives in the participant's LiveKit
+ * attributes, so it reaches every client immediately (ParticipantAttributesChanged)
+ * and is gone when the room ends. Nothing to clean up, and no lingering rights on
+ * a room somebody was once helped with.
+ */
+roomModerationRouter.post("/:roomId/promote-participant/", async (req, res) => {
+  const schema = z.object({
+    participant_identity: z.string().min(1),
+    co_host: z.boolean(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ detail: "Invalid payload." });
+
+  const auth = await authorizeModeration(req.params.roomId, {
+    userId: req.user?.id,
+    livekitRoom: req.livekit?.room,
+    livekitIsAdmin: req.livekit?.isAdmin,
+    livekitIdentity: req.livekit?.identity,
+  });
+  if (!auth.ok)
+    return res.status(403).json({ detail: "Insufficient privileges." });
+
+  const { participant_identity: identity, co_host: coHost } = parsed.data;
+
+  // A co-host must not be able to strip the owner, who would otherwise lose
+  // control of their own room to someone they just helped.
+  if (!coHost) {
+    const { room } = await resolveRoom(req.params.roomId);
+    if (room && isAdminOrOwner(await roleForIdentity(room.id, identity))) {
+      return res.status(409).json({
+        detail: "Le propriétaire de la salle ne peut pas être rétrogradé.",
+      });
+    }
+  }
+
+  try {
+    await roomService.updateParticipant(auth.livekitRoom, identity, {
+      attributes: { [ROOM_ADMIN_ATTRIBUTE]: coHost ? "true" : "false" },
+    });
+    res.json({ status: "success" });
+  } catch (err) {
+    logger.error("[moderation] co-host update failed", err);
+    res.status(502).json({ detail: "Unable to update participant." });
+  }
+});
+
+/**
+ * POST /:roomId/end/ — end the meeting for everyone.
+ *
+ * Deleting the LiveKit room disconnects every participant and makes LiveKit emit
+ * room_finished, which the webhook already turns into a closed MeetingSession —
+ * so the history and the durations stay correct without any extra bookkeeping.
+ */
+roomModerationRouter.post("/:roomId/end/", async (req, res) => {
+  const auth = await authorizeModeration(req.params.roomId, {
+    userId: req.user?.id,
+    livekitRoom: req.livekit?.room,
+    livekitIsAdmin: req.livekit?.isAdmin,
+    livekitIdentity: req.livekit?.identity,
+  });
+  if (!auth.ok)
+    return res.status(403).json({ detail: "Insufficient privileges." });
+
+  try {
+    await roomService.deleteRoom(auth.livekitRoom);
+    res.json({ status: "success" });
+  } catch (err) {
+    logger.error("[moderation] ending the room failed", err);
+    res.status(502).json({ detail: "Unable to end the meeting." });
   }
 });

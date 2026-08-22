@@ -46,6 +46,7 @@ async function authzAdmin(req: import('express').Request, roomId: string) {
     userId: req.user?.id,
     livekitRoom: req.livekit?.room,
     livekitIsAdmin: req.livekit?.isAdmin,
+    livekitIdentity: req.livekit?.identity,
   })
 }
 

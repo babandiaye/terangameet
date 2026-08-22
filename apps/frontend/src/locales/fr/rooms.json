@@ -242,6 +242,13 @@
         "party-popper": "confettis",
         "folded-hands": "mains jointes"
       }
+    },
+    "endMeeting": {
+      "tooltip": "Terminer la réunion pour tout le monde",
+      "heading": "Terminer la réunion pour tout le monde",
+      "description": "Tous les participants seront déconnectés et la réunion sera close. Cette action est irréversible : la salle ne pourra pas être rouverte avec le même lien de session.",
+      "cancel": "Annuler",
+      "confirm": "Terminer pour tout le monde"
     }
   },
   "pictureInPicture": {
@@ -636,6 +643,14 @@
     "pin": {
       "label": "Épingler",
       "ariaLabel": "Épingler {{name}}"
+    },
+    "grantCoHost": {
+      "label": "Nommer co-animateur",
+      "ariaLabel": "Nommer {{name}} co-animateur"
+    },
+    "revokeCoHost": {
+      "label": "Retirer le rôle de co-animateur",
+      "ariaLabel": "Retirer à {{name}} le rôle de co-animateur"
     }
   },
   "pinAnnouncements": {
