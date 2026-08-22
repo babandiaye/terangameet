@@ -29,15 +29,16 @@ export const useMuteParticipant = () => {
         return
       }
 
-      // Guard against undefined token for non-admin users
-      if (!isAdminOrOwner && !apiRoomData.livekit.token) {
+      // Always sent, not only for non-admins: a co-host promoted for this
+      // session has no other proof of standing, and the server needs the token
+      // to know which participant is calling.
+      const headers = apiRoomData.livekit.token
+        ? { Authorization: `Bearer ${apiRoomData.livekit.token}` }
+        : undefined
+      if (!isAdminOrOwner && !headers) {
         console.error('Cannot mute participant: missing auth token')
         return
       }
-
-      const headers = !isAdminOrOwner
-        ? { Authorization: `Bearer ${apiRoomData.livekit.token}` }
-        : undefined
 
       let response
       try {

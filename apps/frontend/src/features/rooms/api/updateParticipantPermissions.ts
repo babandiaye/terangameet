@@ -1,10 +1,12 @@
 import type { Participant, Track } from 'livekit-client'
 import { fetchApi } from '@/api/fetchApi'
 import { useRoomData } from '@/features/rooms/livekit/hooks/useRoomData'
+import { useLivekitAuthHeaders } from '@/features/rooms/api/useLivekitAuthHeaders'
 type Source = Track.Source
 
 export const useParticipantPermissions = () => {
   const data = useRoomData()
+  const headers = useLivekitAuthHeaders()
 
   const updateParticipantPermissions = async (
     participant: Participant,
@@ -26,6 +28,7 @@ export const useParticipantPermissions = () => {
     try {
       return fetchApi(`rooms/${data.id}/update-participant/`, {
         method: 'POST',
+        headers,
         body: JSON.stringify({
           participant_identity: participant.identity,
           permission: newPermissions,
