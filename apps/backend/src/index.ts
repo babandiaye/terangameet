@@ -5,6 +5,18 @@ import { logger } from './lib/logger'
 import { startPurgeScheduler } from './services/recordingPurge'
 import { startGoogleSyncScheduler } from './services/googleSync'
 
+// Safety nets. A stray rejected promise (a fire-and-forget call, a timer) is
+// logged, not fatal: Node 22 would otherwise stop the server and every meeting
+// with it. An uncaught exception may leave the process in an unknown state, so
+// it is logged and the process exits — systemd restarts it within seconds.
+process.on('unhandledRejection', (reason) => {
+  logger.error('[process] unhandled promise rejection', reason)
+})
+process.on('uncaughtException', (err) => {
+  logger.error('[process] uncaught exception, exiting', err)
+  process.exit(1)
+})
+
 async function main() {
   validateEnv() // fail fast on insecure/missing configuration (hard error in prod)
   const app = createApp()

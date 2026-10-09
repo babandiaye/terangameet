@@ -28,8 +28,11 @@ import { googleRouter } from "./routes/google";
 import { authRouter } from "./routes/auth";
 import { authLimiter, adminLimiter } from "./middleware/rateLimit";
 import { logger } from "./lib/logger";
+import { errorHandler, installAsyncErrorHandling } from "./lib/asyncErrors";
 
 export function createApp() {
+  // Async route errors become 500s instead of crashing the process (Express 4).
+  installAsyncErrorHandling();
   const app = express();
 
   if (env.TRUST_PROXY) app.set("trust proxy", 1);
@@ -120,6 +123,9 @@ export function createApp() {
   app.use((req, res) => {
     res.status(404).json({ detail: "Not found", path: req.path });
   });
+
+  // Last: any error a route raised (sync or async) → logged JSON 500.
+  app.use(errorHandler);
 
   return app;
 }
