@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { pipeline } from "node:stream/promises";
 import { z } from "zod";
 import {
   EncodedFileOutput,
@@ -22,7 +23,7 @@ import {
   serializeRoom,
 } from "../services/rooms";
 import { currentSessionId } from "../services/meetingSessions";
-import { readableRecordingsWhere } from "../services/userSpace";
+import { readableRecordingsWhere, recordingVisibleTo } from "../services/userSpace";
 
 /** Room-scoped recording/subtitle actions, mounted under /api/v1.0/rooms. */
 export const recordingRoomRouter = Router();
@@ -254,7 +255,7 @@ recordingsRouter.get("/", async (req, res) => {
 
 recordingsRouter.get("/:id", async (req, res) => {
   const r = await prisma.recording.findFirst({
-    where: { id: req.params.id, ...readableRecordingsWhere(req.user!) },
+    where: { id: req.params.id, ...recordingVisibleTo(req.user!) },
   });
   if (!r) return res.status(404).json({ detail: "Recording not found." });
   res.json(serializeRecording(r));
@@ -269,7 +270,7 @@ recordingsRouter.get("/:id", async (req, res) => {
  */
 recordingsRouter.get("/:id/media/", async (req, res) => {
   const r = await prisma.recording.findFirst({
-    where: { id: req.params.id, ...readableRecordingsWhere(req.user!) },
+    where: { id: req.params.id, ...recordingVisibleTo(req.user!) },
   });
   if (!r) return res.status(404).json({ detail: "Recording not found." });
 
@@ -307,11 +308,25 @@ recordingsRouter.get("/:id/media/", async (req, res) => {
       `${wantsDownload ? "attachment" : "inline"}; filename="${r.id}.${ext}"`,
     );
     res.setHeader("Cache-Control", "private, max-age=0, no-store");
-    obj.body.pipe(res).on("error", (err) => {
-      logger.error("[recording] stream error", err);
+    // pipeline, not pipe: when the player drops this range to seek elsewhere,
+    // the MinIO stream is destroyed with it. With pipe() it stayed open, one
+    // leaked connection per seek.
+    try {
+      await pipeline(obj.body as NodeJS.ReadableStream, res);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "ERR_STREAM_PREMATURE_CLOSE") {
+        logger.error("[recording] stream error", err);
+      }
       if (!res.headersSent) res.status(502).end();
-    });
+    }
   } catch (err) {
+    // A range past the end of the file: say so (416), or the player retries.
+    const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata
+      ?.httpStatusCode;
+    if (status === 416) {
+      return res.status(416).json({ detail: "Requested range not satisfiable." });
+    }
     logger.error("[recording] media fetch failed", err);
     return res.status(404).json({ detail: "Recording file not found." });
   }

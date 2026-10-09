@@ -35,6 +35,17 @@ export function readableRecordingsWhere(user: Pick<User, 'id' | 'sub'>): Prisma.
   }
 }
 
+/**
+ * Recordings a user may open by id (detail, playback, download). Platform
+ * administrators may open any — the admin console lists every recording and
+ * links to it. The personal list (GET /recordings/) stays strictly personal.
+ */
+export function recordingVisibleTo(
+  user: Pick<User, 'id' | 'sub' | 'isStaff'>
+): Prisma.RecordingWhereInput {
+  return user.isStaff ? {} : readableRecordingsWhere(user)
+}
+
 /** Display title of a session, falling back to the room name then the LiveKit name. */
 export function sessionTitle(s: {
   title: string | null
