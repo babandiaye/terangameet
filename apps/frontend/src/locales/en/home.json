@@ -15,7 +15,8 @@
   "moreAbout": "about {{appTitle}}",
   "createMenu": {
     "laterOption": "Create a meeting for a later date",
-    "instantOption": "Start an instant meeting"
+    "instantOption": "Start an instant meeting",
+    "planOption": "Schedule a meeting"
   },
   "laterMeetingDialog": {
     "heading": "Your connection details",

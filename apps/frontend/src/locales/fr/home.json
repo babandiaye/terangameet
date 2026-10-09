@@ -15,7 +15,8 @@
   "moreAbout": "sur {{appTitle}}",
   "createMenu": {
     "laterOption": "Créer une réunion pour une date ultérieure",
-    "instantOption": "Démarrer une réunion instantanée"
+    "instantOption": "Démarrer une réunion instantanée",
+    "planOption": "Planifier une réunion"
   },
   "laterMeetingDialog": {
     "heading": "Vos informations de connexion",

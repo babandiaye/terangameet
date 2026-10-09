@@ -178,6 +178,18 @@ export const env = {
     useSsl: bool('SMTP_USE_SSL', false),
   },
 
+  // Google Calendar, per-user OAuth (phase 2 of the calendar). Hidden until a
+  // client id/secret exist; the client is created by the DITSI (internal app).
+  google: {
+    clientId: str('GOOGLE_OAUTH_CLIENT_ID', ''),
+    clientSecret: str('GOOGLE_OAUTH_CLIENT_SECRET', ''),
+    /** 32-byte key (base64) encrypting the users' refresh tokens at rest. */
+    tokenKey: str('GOOGLE_TOKEN_KEY', ''),
+    get configured(): boolean {
+      return !!(this.clientId && this.clientSecret && this.tokenKey)
+    },
+  },
+
   telephony: {
     enabled: bool('ROOM_TELEPHONY_ENABLED', false),
     phoneNumber: str('ROOM_TELEPHONY_PHONE_NUMBER', ''),
@@ -233,6 +245,12 @@ export function validateEnv(): void {
   if (env.recording.enabled) {
     require(!!env.storage.accessKeyId && !!env.storage.secretAccessKey && !!env.storage.endpoint,
       'Recording is enabled but S3/MinIO credentials (AWS_S3_*) are incomplete.')
+  }
+  if (env.google.clientId || env.google.clientSecret) {
+    require(!!env.google.clientId && !!env.google.clientSecret,
+      'Google Calendar needs both GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.')
+    require(Buffer.from(env.google.tokenKey, 'base64').length === 32,
+      'GOOGLE_TOKEN_KEY must be 32 random bytes, base64-encoded (openssl rand -base64 32).')
   }
   warn(!!env.oidc.clientSecret || env.oidc.usePkce,
     'OIDC has no client secret and PKCE is disabled — login will likely fail.')

@@ -3,6 +3,7 @@ import { env, validateEnv } from './config/env'
 import { prisma } from './lib/prisma'
 import { logger } from './lib/logger'
 import { startPurgeScheduler } from './services/recordingPurge'
+import { startGoogleSyncScheduler } from './services/googleSync'
 
 async function main() {
   validateEnv() // fail fast on insecure/missing configuration (hard error in prod)
@@ -15,10 +16,12 @@ async function main() {
   })
 
   const stopPurge = startPurgeScheduler()
+  const stopGoogleSync = startGoogleSyncScheduler()
 
   const shutdown = async (signal: string) => {
     logger.info(`[server] ${signal} received, shutting down`)
     stopPurge()
+    stopGoogleSync()
     server.close()
     await prisma.$disconnect()
     process.exit(0)

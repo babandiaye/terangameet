@@ -77,12 +77,17 @@ export interface CalendarSettings {
   enabled: boolean
   /** Invitations go by email: without SMTP the calendar cannot work. */
   mail_configured: boolean
+  google: {
+    /** OAuth client from the DITSI installed on the server. */
+    configured: boolean
+    enabled: boolean
+  }
 }
 
 export const fetchCalendarSettings = () => fetchApi<CalendarSettings>('/admin/settings/calendar/')
 
-export const setCalendarEnabled = (enabled: boolean) =>
+export const updateCalendarSettings = (body: { enabled?: boolean; google_enabled?: boolean }) =>
   fetchApi<CalendarSettings>('/admin/settings/calendar/', {
     method: 'PUT',
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify(body),
   })

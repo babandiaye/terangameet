@@ -83,6 +83,7 @@ model User {
   meetingSessions   MeetingSession[]  @relation("MeetingCreator")
   roomInvitesSent   RoomInvitee[]     @relation("RoomInviteeInviter")
   meetingsOrganized ScheduledMeeting[]
+  googleAccount     GoogleAccount?
 
   @@index([email])
   @@map("users")
@@ -337,9 +338,27 @@ model MeetingAttendee {
   meetingId String
   email     String
   response  AttendeeResponse @default(NEEDS_ACTION)
+  /// Co-host: made co-organizer of the meeting's room (moderates every session).
+  isCoHost  Boolean          @default(false)
   createdAt DateTime         @default(now())
 
   @@unique([meetingId, email])
   @@index([email])
   @@map("meeting_attendees")
+}
+
+/// A user's Google account, linked by them through OAuth consent so meetings
+/// they schedule are created in their own Google Calendar (phase 2). The
+/// refresh token is stored encrypted (AES-256-GCM, key in GOOGLE_TOKEN_KEY).
+model GoogleAccount {
+  id           String   @id @default(uuid())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String   @unique
+  googleEmail  String
+  refreshToken String
+  scope        String
+  connectedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("google_accounts")
 }

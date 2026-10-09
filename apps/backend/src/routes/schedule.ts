@@ -7,6 +7,7 @@ import { logger } from '../lib/logger'
 import { requireAuth } from '../auth/middleware'
 import { searchLimiter } from '../middleware/rateLimit'
 import { parseEmailList } from '../lib/roomAccess'
+import { coHostPlan } from '../lib/coHosts'
 import { buildIcs } from '../lib/ics'
 import { sendMail } from '../lib/mailer'
 import { scheduleHtml, scheduleSubject, scheduleText, type ScheduleMailKind } from '../lib/scheduleMail'
@@ -14,6 +15,8 @@ import { getRole } from '../services/rooms'
 import { getSetting } from '../services/settings'
 import { findPeople } from '../services/people'
 import { generateRoomSlug } from '../utils/slug'
+import { buildGoogleEvent } from '../lib/googleEvent'
+import { googleEvents, GoogleConsentLost, isGoogleSyncEnabled, linkedAccount } from '../services/google'
 
 /**
  * Scheduled meetings — the calendar side of TerangaMeet (phase 1).
@@ -36,6 +39,13 @@ scheduleRouter.use(async (_req: Request, res: Response, next: NextFunction) => {
   }
   next()
 })
+
+/** What happened to the invitations: who sent them, and who could not be reached. */
+interface MailReport {
+  sent: number
+  failed: string[]
+  via: 'google' | 'email'
+}
 
 const MAX_ATTENDEES = 200
 const MAX_DURATION_MS = 24 * 3600 * 1000
@@ -78,14 +88,24 @@ async function serialize(m: MeetingWithRelations, user: User) {
     ends_at: m.endsAt.toISOString(),
     timezone: m.timezone,
     status: m.status.toLowerCase(),
-    room: { id: m.room.id, name: m.room.name, slug: m.room.slug ?? m.room.id, url: roomUrl(m.room) },
+    room: {
+      id: m.room.id,
+      name: m.room.name,
+      slug: m.room.slug ?? m.room.id,
+      url: roomUrl(m.room),
+    },
     organizer: { full_name: m.organizer.fullName, email: m.organizer.email },
     is_organizer: m.organizerId === user.id,
+    /** Only the room's owner may name co-hosts. */
+    can_manage_co_hosts: m.organizerId === user.id && (await getRole(m.roomId, user.id)) === 'OWNER',
+    /** Where the invitations live: the organiser's Google Calendar or email. */
+    channel: m.googleEventId ? 'google' : 'email',
     attendees: m.attendees.map((a) => ({
       email: a.email,
       full_name: names.get(a.email) ?? null,
       response: a.response.toLowerCase(),
       is_me: a.email === myEmail,
+      is_co_host: a.isCoHost,
     })),
   }
 }
@@ -128,7 +148,10 @@ async function sendInvitations(
     description: m.description,
     url: roomUrl(m.room),
     organizer: { email: organizerEmail, name: m.organizer.fullName },
-    attendees: m.attendees.map((a) => ({ email: a.email, name: names.get(a.email) })),
+    attendees: m.attendees.map((a) => ({
+      email: a.email,
+      name: names.get(a.email),
+    })),
   })
   const content = {
     kind,
@@ -144,7 +167,10 @@ async function sendInvitations(
     subject: scheduleSubject(content),
     text: scheduleText(content),
     html: scheduleHtml(content),
-    icalEvent: { method: kind === 'cancel' ? ('CANCEL' as const) : ('REQUEST' as const), content: ics },
+    icalEvent: {
+      method: kind === 'cancel' ? ('CANCEL' as const) : ('REQUEST' as const),
+      content: ics,
+    },
   }
 
   const to = [...new Set([organizerEmail, ...recipients])]
@@ -162,12 +188,68 @@ async function sendInvitations(
   return { sent: to.length - failed.length, failed }
 }
 
-/** Put the guests on the room's participant list (restricted rooms let them in). */
-async function listInRoom(roomId: string, emails: string[], invitedById: string) {
-  if (!emails.length) return
-  await prisma.roomInvitee.createMany({
-    data: emails.map((email) => ({ roomId, email, invitedById })),
-    skipDuplicates: true,
+/**
+ * Mirror the meeting on its room: guests join the participant list (restricted
+ * rooms let them in), co-hosts become co-organizers (they moderate every
+ * session), and a co-host who lost the role loses it on the room too.
+ */
+async function syncRoomPeople(
+  roomId: string,
+  invitedById: string,
+  change: { guests: string[]; promoted: string[]; demoted: string[] }
+) {
+  if (change.guests.length) {
+    await prisma.roomInvitee.createMany({
+      data: change.guests.map((email) => ({ roomId, email, invitedById })),
+      skipDuplicates: true,
+    })
+  }
+  if (change.promoted.length) {
+    await prisma.roomInvitee.updateMany({
+      where: { roomId, email: { in: change.promoted } },
+      data: { isCoOrganizer: true },
+    })
+  }
+  if (change.demoted.length) {
+    await prisma.roomInvitee.updateMany({
+      where: { roomId, email: { in: change.demoted } },
+      data: { isCoOrganizer: false },
+    })
+  }
+}
+
+/** Only the room's owner hands out moderation rights, as in « Salles de réunion ». */
+const coHostDenied = (res: Response) =>
+  res.status(403).json({
+    detail: 'Seul le propriétaire de la salle peut désigner des co-animateurs.',
+  })
+
+/** The meeting as Google Calendar receives it. */
+const googleEventOf = (m: MeetingWithRelations) =>
+  buildGoogleEvent({
+    id: m.id,
+    title: m.title,
+    description: m.description,
+    startsAt: m.startsAt,
+    endsAt: m.endsAt,
+    timezone: m.timezone,
+    url: roomUrl(m.room),
+    attendees: m.attendees.map((a) => a.email),
+  })
+
+/**
+ * Answer for a meeting that lives in Google Calendar when Google cannot be
+ * reached: nothing was changed, and the organiser knows what to do.
+ */
+function googleFailure(res: Response, err: unknown) {
+  if (err instanceof GoogleConsentLost) {
+    return res.status(409).json({
+      detail: 'Votre Google Agenda n’est plus relié. Reconnectez-le dans l’onglet Agenda, puis réessayez.',
+    })
+  }
+  logger.error('[schedule] Google Calendar call failed', err)
+  return res.status(502).json({
+    detail: 'Google Agenda n’a pas répondu. Réessayez dans un instant.',
   })
 }
 
@@ -176,7 +258,9 @@ const slotSchema = z
     starts_at: z.coerce.date(),
     ends_at: z.coerce.date(),
   })
-  .refine((s) => s.ends_at > s.starts_at, { message: 'La fin doit suivre le début.' })
+  .refine((s) => s.ends_at > s.starts_at, {
+    message: 'La fin doit suivre le début.',
+  })
   .refine((s) => s.ends_at.getTime() - s.starts_at.getTime() <= MAX_DURATION_MS, {
     message: 'Une réunion dure au plus 24 heures.',
   })
@@ -202,7 +286,9 @@ scheduleRouter.get('/', async (req, res) => {
     take: 100,
     include: withRelations,
   })
-  res.json({ results: await Promise.all(meetings.map((m) => serialize(m, user))) })
+  res.json({
+    results: await Promise.all(meetings.map((m) => serialize(m, user))),
+  })
 })
 
 /** GET /people/?q= — members to suggest as guests (the caller excluded). */
@@ -228,7 +314,11 @@ const createSchema = z
     description: z.string().trim().max(5000).default(''),
     /** An existing room I organise; omitted → a new room titled like the meeting. */
     room_id: z.string().optional(),
+    /** Access type of the new room (ignored with room_id). */
+    access_level: z.enum(['public', 'trusted', 'restricted']).optional(),
     attendees: z.array(z.string()).max(MAX_ATTENDEES).default([]),
+    /** Guests who co-host: made co-organizers of the room. */
+    co_hosts: z.array(z.string()).max(MAX_ATTENDEES).default([]),
   })
   .and(slotSchema)
 
@@ -247,6 +337,8 @@ scheduleRouter.post('/', async (req, res) => {
   if (invalid.length) return res.status(400).json({ detail: `Adresse invalide : ${invalid[0]}` })
   const guests = attendees.filter((e) => e !== user.email!.toLowerCase())
 
+  const hosts = coHostPlan({ guests, requested: body.co_hosts, current: [] })
+
   let room: Room | null
   if (body.room_id) {
     room = await prisma.room.findUnique({ where: { id: body.room_id } }).catch(() => null)
@@ -254,12 +346,13 @@ scheduleRouter.post('/', async (req, res) => {
     if (!room || (role !== 'OWNER' && role !== 'ADMIN')) {
       return res.status(404).json({ detail: 'Salle introuvable.' })
     }
+    if (hosts.coHosts.length && role !== 'OWNER') return coHostDenied(res)
   } else {
     room = await prisma.room.create({
       data: {
         name: body.title,
         slug: generateRoomSlug(),
-        accessLevel: env.rooms.defaultAccessLevel.toUpperCase() as Room['accessLevel'],
+        accessLevel: (body.access_level ?? env.rooms.defaultAccessLevel).toUpperCase() as Room['accessLevel'],
         accesses: { create: { userId: user.id, role: 'OWNER' } },
       },
     })
@@ -274,24 +367,56 @@ scheduleRouter.post('/', async (req, res) => {
       startsAt: body.starts_at,
       endsAt: body.ends_at,
       timezone: TIMEZONE,
-      attendees: { create: guests.map((email) => ({ email })) },
+      attendees: {
+        create: guests.map((email) => ({
+          email,
+          isCoHost: hosts.coHosts.includes(email),
+        })),
+      },
     },
     include: withRelations,
   })
-  await listInRoom(room.id, guests, user.id)
-  const mail = await sendInvitations(created, 'new', guests)
-  logger.info(`[schedule] ${user.email} planned ${created.id} with ${guests.length} guest(s)`)
+  await syncRoomPeople(room.id, user.id, {
+    guests,
+    promoted: hosts.coHosts,
+    demoted: [],
+  })
+
+  // The channel is fixed here, for the meeting's whole life: Google when the
+  // organiser linked their calendar (Google then emails the guests), else
+  // iCalendar emails. Switching later would leave guests with two events.
+  let mail: MailReport | null = null
+  if ((await isGoogleSyncEnabled()) && (await linkedAccount(user.id))) {
+    try {
+      const event = await googleEvents.insert(user.id, googleEventOf(created))
+      if (event?.id) {
+        created.googleEventId = event.id
+        await prisma.scheduledMeeting.update({
+          where: { id: created.id },
+          data: { googleEventId: event.id },
+        })
+        mail = { sent: guests.length, failed: [], via: 'google' }
+      }
+    } catch (err) {
+      // Not saved in Google: the invitations still go out, by email.
+      logger.warn(
+        `[schedule] Google insert failed for ${created.id}, falling back to email: ${(err as Error).message}`
+      )
+    }
+  }
+  mail ??= { ...(await sendInvitations(created, 'new', guests)), via: 'email' }
+  logger.info(`[schedule] ${user.email} planned ${created.id} with ${guests.length} guest(s) via ${mail.via}`)
   res.status(201).json({ meeting: await serialize(created, user), mail })
 })
 
-const updateSchema = z
-  .object({
-    title: z.string().trim().min(1).max(120).optional(),
-    description: z.string().trim().max(5000).optional(),
-    starts_at: z.coerce.date().optional(),
-    ends_at: z.coerce.date().optional(),
-    attendees: z.array(z.string()).max(MAX_ATTENDEES).optional(),
-  })
+const updateSchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().max(5000).optional(),
+  starts_at: z.coerce.date().optional(),
+  ends_at: z.coerce.date().optional(),
+  attendees: z.array(z.string()).max(MAX_ATTENDEES).optional(),
+  co_hosts: z.array(z.string()).max(MAX_ATTENDEES).optional(),
+})
 
 /** PATCH /:id/ — change a meeting (organiser only); guests receive the update. */
 scheduleRouter.patch('/:id/', async (req, res) => {
@@ -318,20 +443,63 @@ scheduleRouter.patch('/:id/', async (req, res) => {
   const before = new Set(m.attendees.map((a) => a.email))
   const removed = [...before].filter((e) => !guests.includes(e))
   const added = guests.filter((e) => !before.has(e))
+  const hosts = coHostPlan({
+    guests,
+    requested: body.co_hosts,
+    current: m.attendees.filter((a) => a.isCoHost).map((a) => a.email),
+  })
+  if (
+    (hosts.promoted.length || (body.co_hosts && hosts.demoted.length)) &&
+    (await getRole(m.roomId, user.id)) !== 'OWNER'
+  ) {
+    return coHostDenied(res)
+  }
 
-  // Removed guests get a cancellation first, while they are still on the event.
-  if (removed.length) {
+  // A meeting living in Google Calendar is changed there first: if Google
+  // refuses, nothing changes here either. Google itself notifies added and
+  // removed guests (sendUpdates=all).
+  if (m.googleEventId) {
+    try {
+      await googleEvents.patch(
+        user.id,
+        m.googleEventId,
+        googleEventOf({
+          ...m,
+          title: body.title ?? m.title,
+          description: body.description ?? m.description,
+          startsAt: slot.data.starts_at,
+          endsAt: slot.data.ends_at,
+          attendees: guests.map((email) => ({ ...m.attendees[0], email })),
+        })
+      )
+    } catch (err) {
+      return googleFailure(res, err)
+    }
+  } else if (removed.length) {
+    // Removed guests get a cancellation first, while they are still on the event.
     await sendInvitations({ ...m, sequence: m.sequence + 1 }, 'cancel', removed)
   }
 
   const updated = await prisma.$transaction(async (tx) => {
     if (removed.length) {
-      await tx.meetingAttendee.deleteMany({ where: { meetingId: m.id, email: { in: removed } } })
+      await tx.meetingAttendee.deleteMany({
+        where: { meetingId: m.id, email: { in: removed } },
+      })
     }
     if (added.length) {
       await tx.meetingAttendee.createMany({
         data: added.map((email) => ({ meetingId: m.id, email })),
         skipDuplicates: true,
+      })
+    }
+    await tx.meetingAttendee.updateMany({
+      where: { meetingId: m.id },
+      data: { isCoHost: false },
+    })
+    if (hosts.coHosts.length) {
+      await tx.meetingAttendee.updateMany({
+        where: { meetingId: m.id, email: { in: hosts.coHosts } },
+        data: { isCoHost: true },
       })
     }
     return tx.scheduledMeeting.update({
@@ -346,8 +514,14 @@ scheduleRouter.patch('/:id/', async (req, res) => {
       include: withRelations,
     })
   })
-  await listInRoom(updated.roomId, added, user.id)
-  const mail = await sendInvitations(updated, 'update', guests)
+  await syncRoomPeople(updated.roomId, user.id, {
+    guests: added,
+    promoted: hosts.promoted,
+    demoted: hosts.demoted,
+  })
+  const mail: MailReport = updated.googleEventId
+    ? { sent: guests.length, failed: [], via: 'google' }
+    : { ...(await sendInvitations(updated, 'update', guests)), via: 'email' }
   res.json({ meeting: await serialize(updated, user), mail })
 })
 
@@ -356,17 +530,29 @@ scheduleRouter.delete('/:id/', async (req, res) => {
   const user = req.user!
   const m = await visibleMeeting(req.params.id, user)
   if (!m || m.organizerId !== user.id) return res.status(404).json({ detail: 'Réunion introuvable.' })
-  if (m.status === 'CANCELLED') return res.json({ mail: { sent: 0, failed: [] } })
+  if (m.status === 'CANCELLED') return res.json({ mail: { sent: 0, failed: [], via: 'email' } })
+  if (m.googleEventId) {
+    try {
+      await googleEvents.remove(user.id, m.googleEventId)
+    } catch (err) {
+      return googleFailure(res, err)
+    }
+  }
   const cancelled = await prisma.scheduledMeeting.update({
     where: { id: m.id },
     data: { status: 'CANCELLED', sequence: { increment: 1 } },
     include: withRelations,
   })
-  const mail = await sendInvitations(
-    cancelled,
-    'cancel',
-    cancelled.attendees.map((a) => a.email)
-  )
-  logger.info(`[schedule] ${user.email} cancelled ${m.id}`)
+  const mail: MailReport = cancelled.googleEventId
+    ? { sent: cancelled.attendees.length, failed: [], via: 'google' }
+    : {
+        ...(await sendInvitations(
+          cancelled,
+          'cancel',
+          cancelled.attendees.map((a) => a.email)
+        )),
+        via: 'email',
+      }
+  logger.info(`[schedule] ${user.email} cancelled ${m.id} via ${mail.via}`)
   res.json({ mail })
 })

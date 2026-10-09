@@ -45,16 +45,15 @@ export const InviteePicker = ({
   /** Unique per picker instance (cache key and hint id). */
   id: string
   /** Server-side member search for this context (room list, meeting guests). */
-  search: (
-    q: string
-  ) => Promise<{
+  search: (q: string) => Promise<{
     results: { id: string; full_name: string | null; email: string }[]
   }>
   /** Addresses already chosen: not suggested again. */
   exclude?: string[]
   label?: string
   isAdding?: boolean
-  onPick: (email: string) => void
+  /** Called with the address, and the account name when a member was picked. */
+  onPick: (email: string, name?: string | null) => void
 }) => {
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
@@ -97,7 +96,7 @@ export const InviteePicker = ({
 
   const pick = (s: Suggestion | undefined) => {
     if (!s) return
-    onPick(s.email)
+    onPick(s.email, s.kind === 'member' ? s.name : undefined)
     setInput('')
     setQuery('')
   }

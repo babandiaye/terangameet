@@ -132,6 +132,8 @@ export interface ScheduledAttendee {
   full_name: string | null
   response: 'needs_action' | 'accepted' | 'declined' | 'tentative'
   is_me: boolean
+  /** Co-organizer of the meeting's room. */
+  is_co_host: boolean
 }
 
 export interface ScheduledMeeting {
@@ -145,12 +147,24 @@ export interface ScheduledMeeting {
   room: { id: string; name: string; slug: string; url: string }
   organizer: { full_name: string | null; email: string | null }
   is_organizer: boolean
+  /** Only the room's owner may name co-hosts. */
+  can_manage_co_hosts: boolean
+  /** Where the invitations live: the organiser's Google Calendar, or email. */
+  channel: 'google' | 'email'
   attendees: ScheduledAttendee[]
 }
 
 export interface MailReport {
   sent: number
   failed: string[]
+  via: 'google' | 'email'
+}
+
+export interface GoogleLink {
+  available: boolean
+  connected: boolean
+  google_email: string | null
+  connected_at: string | null
 }
 
 export interface ScheduleInput {
@@ -160,5 +174,9 @@ export interface ScheduleInput {
   ends_at: string
   /** Omitted on creation → a new room titled like the meeting. */
   room_id?: string
+  /** Access type of a new room. */
+  access_level?: RoomAccessLevel
   attendees: string[]
+  /** Guests who co-host (made co-organizers of the room). */
+  co_hosts?: string[]
 }

@@ -3,7 +3,9 @@ import { MenuItem, Menu as RACMenu } from 'react-aria-components'
 import { Button, Menu } from '@/primitives'
 import { navigateTo } from '@/navigation/navigateTo'
 import { generateRoomId, useCreateRoom } from '@/features/rooms'
-import { RiAddLine, RiLink } from '@remixicon/react'
+import { RiAddLine, RiCalendarEventLine, RiLink } from '@remixicon/react'
+import { useConfig } from '@/api/useConfig'
+import { ScheduleMeetingDialog } from '@/features/me/components/ScheduleMeetingDialog'
 import { LaterMeetingDialog } from '@/features/home/components/LaterMeetingDialog'
 import {
   CreateMeetingDialog,
@@ -23,6 +25,9 @@ export const CreateMeetingMenu = () => {
   const { t } = useTranslation('home')
   const { mutateAsync: createRoom } = useCreateRoom()
   const [laterRoom, setLaterRoom] = useState<null | ApiRoom>(null)
+  const [isPlanning, setIsPlanning] = useState(false)
+  const { data: config } = useConfig()
+  const isCalendarEnabled = !!config?.calendar?.enabled
   // Both options first ask for an optional title, as Google Meet does when a
   // meeting is planned; the link itself is still a random code.
   const [pendingMode, setPendingMode] = useState<null | CreateMeetingMode>(null)
@@ -58,14 +63,29 @@ export const CreateMeetingMenu = () => {
           </MenuItem>
           <MenuItem
             className={menuRecipe({ icon: true, variant: 'light' }).item}
-            onAction={() => setPendingMode('later')}
+            // With the agenda on, « later » means planning it properly: date,
+            // guests, co-hosts, calendar invitations. Off, the old flow stays —
+            // switching the agenda off in the admin settings restores it.
+            onAction={() =>
+              isCalendarEnabled ? setIsPlanning(true) : setPendingMode('later')
+            }
             data-attr="create-option-later"
           >
-            <RiLink size={18} />
-            {t('createMenu.laterOption')}
+            {isCalendarEnabled ? (
+              <RiCalendarEventLine size={18} />
+            ) : (
+              <RiLink size={18} />
+            )}
+            {isCalendarEnabled
+              ? t('createMenu.planOption')
+              : t('createMenu.laterOption')}
           </MenuItem>
         </RACMenu>
       </Menu>
+      <ScheduleMeetingDialog
+        isOpen={isPlanning}
+        onClose={() => setIsPlanning(false)}
+      />
       <CreateMeetingDialog
         mode={pendingMode}
         onClose={() => setPendingMode(null)}

@@ -34,23 +34,39 @@ adminRouter.get("/status/", async (_req, res) => {
  * invitations) are offered. Invitations go by email, hence `mail_configured`:
  * the toggle is pointless without SMTP and the UI says so.
  */
+const calendarSettings = async () => ({
+  enabled: await getSetting("calendar.enabled"),
+  mail_configured: env.mail.enabled,
+  google: {
+    // Credentials from the DITSI installed on the server (.env.production).
+    configured: env.google.configured,
+    enabled: await getSetting("calendar.google.enabled"),
+  },
+});
+
 adminRouter.get("/settings/calendar/", async (_req, res) => {
-  res.json({
-    enabled: await getSetting("calendar.enabled"),
-    mail_configured: env.mail.enabled,
-  });
+  res.json(await calendarSettings());
 });
 
 /** PUT /settings/calendar/ — switch the calendar on or off for everyone. */
 adminRouter.put("/settings/calendar/", async (req, res) => {
-  const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
+  const parsed = z
+    .object({ enabled: z.boolean().optional(), google_enabled: z.boolean().optional() })
+    .safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ detail: "Invalid payload." });
-  await setSetting("calendar.enabled", parsed.data.enabled);
-  logger.info(
-    `[admin] calendar ${parsed.data.enabled ? "enabled" : "disabled"} by ${req.user!.email}`,
-  );
-  res.json({ enabled: parsed.data.enabled, mail_configured: env.mail.enabled });
+  if (parsed.data.enabled !== undefined) {
+    await setSetting("calendar.enabled", parsed.data.enabled);
+    logger.info(`[admin] calendar ${parsed.data.enabled ? "enabled" : "disabled"} by ${req.user!.email}`);
+  }
+  if (parsed.data.google_enabled !== undefined) {
+    if (parsed.data.google_enabled && !env.google.configured) {
+      return res.status(409).json({ detail: "Les identifiants Google ne sont pas installés sur le serveur." });
+    }
+    await setSetting("calendar.google.enabled", parsed.data.google_enabled);
+    logger.info(`[admin] Google Calendar sync ${parsed.data.google_enabled ? "enabled" : "disabled"} by ${req.user!.email}`);
+  }
+  res.json(await calendarSettings());
 });
 
 /* ------------------------------------------------------------------ purge -- */

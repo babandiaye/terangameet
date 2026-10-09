@@ -15,7 +15,8 @@
   "moreAbout": "over {{appTitle}}",
   "createMenu": {
     "laterOption": "Maak een vergadering voor een latere datum",
-    "instantOption": "Begin direct een vergadering"
+    "instantOption": "Begin direct een vergadering",
+    "planOption": "Vergadering plannen"
   },
   "laterMeetingDialog": {
     "heading": "Uw verbindingsgegevens",

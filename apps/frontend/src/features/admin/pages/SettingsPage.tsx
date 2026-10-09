@@ -7,7 +7,7 @@ import { Card } from '@/components/console/ui'
 import {
   fetchCalendarSettings,
   fetchPurgeConfig,
-  setCalendarEnabled,
+  updateCalendarSettings,
   setPurgePeriod,
   runPurge,
 } from '../api/adminApi'
@@ -81,7 +81,7 @@ const CalendarSection = () => {
   const qc = useQueryClient()
   const { data } = useQuery({ queryKey: ['admin', 'settings', 'calendar'], queryFn: fetchCalendarSettings })
   const toggle = useMutation({
-    mutationFn: setCalendarEnabled,
+    mutationFn: updateCalendarSettings,
     onSuccess: (next) => {
       qc.setQueryData(['admin', 'settings', 'calendar'], next)
       qc.invalidateQueries({ queryKey: ['config'] })
@@ -102,15 +102,46 @@ const CalendarSection = () => {
           type="switch"
           label={data.enabled ? 'Agenda activé' : 'Agenda désactivé'}
           description="Ajoute l’onglet « Agenda » dans l’espace de chaque utilisateur."
-          isSelected={toggle.isPending ? toggle.variables : data.enabled}
+          isSelected={toggle.isPending && toggle.variables.enabled !== undefined ? toggle.variables.enabled : data.enabled}
           isDisabled={toggle.isPending}
-          onChange={(enabled) => toggle.mutate(enabled)}
+          onChange={(enabled) => toggle.mutate({ enabled })}
           wrapperProps={{ noMargin: true }}
         />
       ) : (
         <p className={css({ fontSize: '0.9rem', color: 'danger.600' })}>
           L’envoi d’emails (SMTP) n’est pas configuré sur le serveur : l’agenda ne peut pas être activé.
         </p>
+      )}
+      {data.enabled && (
+        <div className={css({ marginTop: '1.1rem', paddingTop: '1rem', borderTop: '1px solid', borderColor: 'greyscale.100' })}>
+          <h4 className={css({ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.35rem' })}>
+            Synchronisation Google Agenda
+          </h4>
+          <p className={css({ fontSize: '0.88rem', color: 'greyscale.700', lineHeight: 1.6, marginBottom: '0.75rem' })}>
+            Chaque utilisateur peut relier son Google Agenda : ses réunions y sont créées directement, Google envoie les
+            invitations et les réponses des invités remontent dans TerangaMeet.
+          </p>
+          {data.google.configured ? (
+            <Field
+              type="switch"
+              label={data.google.enabled ? 'Synchronisation activée' : 'Synchronisation désactivée'}
+              description="Ajoute « Connecter mon Google Agenda » dans l’onglet Agenda."
+              isSelected={
+                toggle.isPending && toggle.variables.google_enabled !== undefined
+                  ? toggle.variables.google_enabled
+                  : data.google.enabled
+              }
+              isDisabled={toggle.isPending}
+              onChange={(google_enabled) => toggle.mutate({ google_enabled })}
+              wrapperProps={{ noMargin: true }}
+            />
+          ) : (
+            <p className={css({ fontSize: '0.88rem', color: 'greyscale.600' })}>
+              En attente des identifiants Google : la DITSI crée le client OAuth dans Google Cloud, puis l’ID client et le
+              secret sont ajoutés au serveur (<code>GOOGLE_OAUTH_CLIENT_ID</code>, <code>GOOGLE_OAUTH_CLIENT_SECRET</code>).
+            </p>
+          )}
+        </div>
       )}
       {toggle.isError && (
         <p role="alert" className={css({ fontSize: '0.85rem', color: 'danger.600', marginTop: '0.5rem' })}>

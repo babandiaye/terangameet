@@ -26,6 +26,8 @@ declare module 'express-session' {
     userId?: string
     anonId?: string
     idToken?: string
+    /** Anti-forgery state of a pending Google Calendar consent. */
+    googleState?: string
     /** Per-room lobby participant id for guests awaiting entry. */
     lobby?: Record<string, string>
     oidc?: {

@@ -45,6 +45,8 @@ export interface ApiConfig {
   /** Scheduled meetings + calendar invitations, switched on by an administrator. */
   calendar?: {
     enabled: boolean
+    /** Users may link their Google Calendar (phase 2). */
+    google?: boolean
   }
   email_invite?: {
     enabled: boolean

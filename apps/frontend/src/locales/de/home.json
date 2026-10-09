@@ -15,7 +15,8 @@
   "moreAbout": "über {{appTitle}}",
   "createMenu": {
     "laterOption": "Meeting für später planen",
-    "instantOption": "Meeting sofort starten"
+    "instantOption": "Meeting sofort starten",
+    "planOption": "Besprechung planen"
   },
   "laterMeetingDialog": {
     "heading": "Zugangsdaten",

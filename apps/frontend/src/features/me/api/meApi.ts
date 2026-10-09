@@ -1,6 +1,7 @@
 import { fetchApi } from '@/api/fetchApi'
 import type {
   AddInviteesResult,
+  GoogleLink,
   MailReport,
   ScheduleInput,
   ScheduledMeeting,
@@ -105,3 +106,9 @@ export const searchGuests = (q: string) =>
   fetchApi<{ results: { id: string; full_name: string | null; email: string }[] }>(
     `/me/schedule/people/${qs({ q })}`
   )
+
+/* --------------------------------------------------------- google link -- */
+
+export const fetchGoogleLink = () => fetchApi<GoogleLink>('/me/google/')
+
+export const unlinkGoogle = () => fetchApi<void>('/me/google/', { method: 'DELETE' })

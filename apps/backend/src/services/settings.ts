@@ -8,6 +8,8 @@ import { prisma } from '../lib/prisma'
 const DEFAULTS = {
   /** Calendar: scheduled meetings + iCalendar invitations (off until enabled). */
   'calendar.enabled': false as boolean,
+  /** Phase 2: users may link their Google Calendar (needs the OAuth client). */
+  'calendar.google.enabled': false as boolean,
 }
 
 export type SettingKey = keyof typeof DEFAULTS
