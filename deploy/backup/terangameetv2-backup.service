@@ -1,0 +1,15 @@
+[Unit]
+Description=TerangaMeet — sauvegarde nocturne (base + configuration), vérifiée par restauration
+Documentation=file:///opt/terangameetv2/docs/SAUVEGARDES.md
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# root : docker exec dans le conteneur Postgres, lecture des secrets et de /etc.
+# Exécute la copie root (install -o root -m 755) du script versionné dans
+# deploy/backup/ : un script lancé en root ne doit pas être modifiable par un
+# autre compte.
+ExecStart=/usr/local/sbin/terangameetv2-backup
+Nice=10
+IOSchedulingClass=idle

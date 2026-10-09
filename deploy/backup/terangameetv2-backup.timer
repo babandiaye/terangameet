@@ -1,0 +1,11 @@
+[Unit]
+Description=TerangaMeet — sauvegarde chaque nuit à 02:00
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+# Rattrape une sauvegarde manquée si le serveur était éteint à 02:00.
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
