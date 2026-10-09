@@ -23,13 +23,26 @@ export interface MailMessage {
   subject: string
   text: string
   html?: string
+  /**
+   * A calendar invitation (iCalendar). Sent as a text/calendar alternative,
+   * which is what makes Gmail and Outlook show Yes / No / Maybe and add the
+   * event — an .ics merely attached is shown as a file.
+   */
+  icalEvent?: { method: 'REQUEST' | 'CANCEL'; content: string }
 }
 
 /** Send one email. Throws if SMTP is not configured. */
 export async function sendMail(msg: MailMessage): Promise<void> {
   if (!env.mail.enabled) throw new Error('SMTP is not configured')
   const from = env.mail.fromName ? `${env.mail.fromName} <${env.mail.from}>` : env.mail.from
-  await getTransport().sendMail({ from, ...msg })
+  const { icalEvent, ...rest } = msg
+  await getTransport().sendMail({
+    from,
+    ...rest,
+    ...(icalEvent
+      ? { icalEvent: { method: icalEvent.method, filename: 'invitation.ics', content: icalEvent.content } }
+      : {}),
+  })
 }
 
 /** Verify the SMTP connection (used by the status probe). No-op when disabled. */

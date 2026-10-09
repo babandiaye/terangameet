@@ -1,11 +1,14 @@
 import { Router } from 'express'
 import { env } from '../config/env'
+import { getSetting } from '../services/settings'
 
 export const configRouter = Router()
 
 /** GET /api/v1.0/config/ — frontend bootstrap configuration (ApiConfig). */
-configRouter.get('/', (_req, res) => {
+configRouter.get('/', async (_req, res) => {
   res.json({
+    // Scheduled meetings + calendar invitations, switched on by an administrator.
+    calendar: { enabled: env.mail.enabled && (await getSetting('calendar.enabled')) },
     feedback: { url: env.frontend.feedbackUrl },
     external_home_url: env.frontend.externalHomeUrl || undefined,
     silence_livekit_debug_logs: env.frontend.silenceLivekitDebug,

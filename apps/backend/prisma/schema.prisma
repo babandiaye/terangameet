@@ -22,6 +22,18 @@ enum RoomAccessLevel {
   RESTRICTED
 }
 
+enum ScheduledMeetingStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+enum AttendeeResponse {
+  NEEDS_ACTION
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
 enum RecordingStatus {
   INITIATED
   ACTIVE
@@ -70,6 +82,7 @@ model User {
   notes             MeetingNote[]
   meetingSessions   MeetingSession[]  @relation("MeetingCreator")
   roomInvitesSent   RoomInvitee[]     @relation("RoomInviteeInviter")
+  meetingsOrganized ScheduledMeeting[]
 
   @@index([email])
   @@map("users")
@@ -103,6 +116,7 @@ model Room {
   recordings Recording[]
   sessions   MeetingSession[]
   invitees   RoomInvitee[]
+  scheduled  ScheduledMeeting[]
 
   @@map("rooms")
 }
@@ -273,4 +287,59 @@ model ApplicationDomain {
 
   @@unique([applicationId, domain])
   @@map("application_domains")
+}
+
+/// Platform-wide settings an administrator toggles at runtime (e.g. the
+/// calendar). A key/value table rather than env vars, so a change needs no
+/// redeploy, and rather than Redis, so it survives a cache flush.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
+/// A meeting planned at a date, in a room: the calendar side of TerangaMeet.
+/// Invitations go out as iCalendar (.ics) emails whose UID derives from the
+/// id; `sequence` is bumped on every change so calendars apply updates and
+/// cancellations in order (RFC 5545).
+model ScheduledMeeting {
+  id            String                 @id @default(uuid())
+  room          Room                   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId        String
+  organizer     User                   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  organizerId   String
+  title         String
+  description   String                 @default("")
+  startsAt      DateTime
+  endsAt        DateTime
+  timezone      String                 @default("Africa/Dakar")
+  status        ScheduledMeetingStatus @default(SCHEDULED)
+  sequence      Int                    @default(0)
+  /// Set once the event is mirrored in the organiser's Google Calendar (phase 2).
+  googleEventId String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  attendees MeetingAttendee[]
+
+  @@index([organizerId, startsAt])
+  @@index([startsAt])
+  @@map("scheduled_meetings")
+}
+
+/// A guest of a scheduled meeting, by email (lowercased) — members of the
+/// platform or not, like the room participant list.
+model MeetingAttendee {
+  id        String           @id @default(uuid())
+  meeting   ScheduledMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  meetingId String
+  email     String
+  response  AttendeeResponse @default(NEEDS_ACTION)
+  createdAt DateTime         @default(now())
+
+  @@unique([meetingId, email])
+  @@index([email])
+  @@map("meeting_attendees")
 }

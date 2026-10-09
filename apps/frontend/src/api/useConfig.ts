@@ -42,6 +42,10 @@ export interface ApiConfig {
   subtitle: {
     enabled: boolean
   }
+  /** Scheduled meetings + calendar invitations, switched on by an administrator. */
+  calendar?: {
+    enabled: boolean
+  }
   email_invite?: {
     enabled: boolean
   }

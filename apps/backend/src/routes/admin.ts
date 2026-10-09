@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { logger } from "../lib/logger";
+import { getSetting, setSetting } from "../services/settings";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
@@ -23,6 +25,32 @@ adminRouter.use(requireAuth, requireStaff);
 /** GET /status/ — live health of every infrastructure dependency. */
 adminRouter.get("/status/", async (_req, res) => {
   res.json(await checkAll());
+});
+
+/* --------------------------------------------------------------- calendar -- */
+
+/**
+ * GET /settings/calendar/ — whether scheduled meetings (and their calendar
+ * invitations) are offered. Invitations go by email, hence `mail_configured`:
+ * the toggle is pointless without SMTP and the UI says so.
+ */
+adminRouter.get("/settings/calendar/", async (_req, res) => {
+  res.json({
+    enabled: await getSetting("calendar.enabled"),
+    mail_configured: env.mail.enabled,
+  });
+});
+
+/** PUT /settings/calendar/ — switch the calendar on or off for everyone. */
+adminRouter.put("/settings/calendar/", async (req, res) => {
+  const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ detail: "Invalid payload." });
+  await setSetting("calendar.enabled", parsed.data.enabled);
+  logger.info(
+    `[admin] calendar ${parsed.data.enabled ? "enabled" : "disabled"} by ${req.user!.email}`,
+  );
+  res.json({ enabled: parsed.data.enabled, mail_configured: env.mail.enabled });
 });
 
 /* ------------------------------------------------------------------ purge -- */

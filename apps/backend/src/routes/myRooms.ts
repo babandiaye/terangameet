@@ -8,7 +8,7 @@ import { requireAuth } from '../auth/middleware'
 import { inviteLimiter, searchLimiter } from '../middleware/rateLimit'
 import { paging, paginated } from '../lib/pagination'
 import { parseEmailList } from '../lib/roomAccess'
-import { FOLD_FROM, FOLD_TO, searchTerms } from '../lib/peopleSearch'
+import { findPeople } from '../services/people'
 import { sendMail } from '../lib/mailer'
 import { getRole } from '../services/rooms'
 import { generateRoomSlug } from '../utils/slug'
@@ -195,25 +195,11 @@ myRoomsRouter.get('/:roomId/', async (req, res) => {
 myRoomsRouter.get('/:roomId/people/', searchLimiter, async (req, res) => {
   const found = await organisedRoom(req, res)
   if (!found) return
-  const terms = searchTerms(String(req.query.q ?? ''))
-  if (!terms.length) return res.json({ results: [] })
-
-  const foldedName = Prisma.sql`translate(lower(coalesce(u."fullName", '')), ${FOLD_FROM}, ${FOLD_TO})`
-  const matches = terms.map(
-    (t) => Prisma.sql`(${foldedName} LIKE ${'%' + t + '%'} OR lower(u.email) LIKE ${'%' + t + '%'})`
-  )
-  const rows = await prisma.$queryRaw<{ id: string; full_name: string | null; email: string }[]>(Prisma.sql`
-    SELECT u.id, u."fullName" AS full_name, u.email
-    FROM users u
-    WHERE u."isActive" AND u.email IS NOT NULL
-      AND lower(u.email) NOT IN (SELECT email FROM room_invitees WHERE "roomId" = ${found.room.id})
-      AND u.id NOT IN (
-        SELECT "userId" FROM room_accesses WHERE "roomId" = ${found.room.id} AND role = 'OWNER'
-      )
-      AND ${Prisma.join(matches, ' AND ')}
-    ORDER BY (${foldedName} LIKE ${terms[0] + '%'}) DESC, u."fullName" ASC NULLS LAST
-    LIMIT 8`)
-  res.json({ results: rows.map((r) => ({ id: r.id, full_name: r.full_name, email: r.email.toLowerCase() })) })
+  const results = await findPeople(String(req.query.q ?? ''), {
+    emails: Prisma.sql`SELECT email FROM room_invitees WHERE "roomId" = ${found.room.id}`,
+    userIds: Prisma.sql`SELECT "userId" FROM room_accesses WHERE "roomId" = ${found.room.id} AND role = 'OWNER'`,
+  })
+  res.json({ results })
 })
 
 /** POST /:roomId/invitees/ — add addresses (a pasted list is fine). */

@@ -124,3 +124,41 @@ export interface AddInviteesResult {
   invalid: string[]
   invitees: RoomInvitee[]
 }
+
+/* --------------------------------------------------------------- agenda -- */
+
+export interface ScheduledAttendee {
+  email: string
+  full_name: string | null
+  response: 'needs_action' | 'accepted' | 'declined' | 'tentative'
+  is_me: boolean
+}
+
+export interface ScheduledMeeting {
+  id: string
+  title: string
+  description: string
+  starts_at: string
+  ends_at: string
+  timezone: string
+  status: 'scheduled' | 'cancelled'
+  room: { id: string; name: string; slug: string; url: string }
+  organizer: { full_name: string | null; email: string | null }
+  is_organizer: boolean
+  attendees: ScheduledAttendee[]
+}
+
+export interface MailReport {
+  sent: number
+  failed: string[]
+}
+
+export interface ScheduleInput {
+  title: string
+  description: string
+  starts_at: string
+  ends_at: string
+  /** Omitted on creation → a new room titled like the meeting. */
+  room_id?: string
+  attendees: string[]
+}

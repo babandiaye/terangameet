@@ -3,16 +3,18 @@ import { Link } from 'wouter'
 import { css } from '@/styled-system/css'
 import {
   RiDashboardLine,
+  RiCalendarEventLine,
   RiDoorOpenLine,
   RiHistoryLine,
   RiFilmLine,
 } from '@remixicon/react'
 import { useHomePath } from '@/features/auth/utils/useHomePath'
+import { useConfig } from '@/api/useConfig'
 import { Screen } from '@/layout/Screen'
 import { ConsoleTopBar } from '@/components/console/TopBar'
 import { ConsoleSidebarFooter } from '@/components/console/SidebarFooter'
 
-export type MySpaceSection = 'dashboard' | 'rooms' | 'meetings' | 'recordings'
+export type MySpaceSection = 'dashboard' | 'agenda' | 'rooms' | 'meetings' | 'recordings'
 
 const NAV: {
   key: MySpaceSection
@@ -20,6 +22,7 @@ const NAV: {
   Icon: typeof RiDashboardLine
 }[] = [
   { key: 'dashboard', label: 'Tableau de bord', Icon: RiDashboardLine },
+  { key: 'agenda', label: 'Agenda', Icon: RiCalendarEventLine },
   { key: 'rooms', label: 'Salles de réunion', Icon: RiDoorOpenLine },
   { key: 'meetings', label: 'Historique des sessions', Icon: RiHistoryLine },
   { key: 'recordings', label: 'Enregistrements', Icon: RiFilmLine },
@@ -40,6 +43,9 @@ export const MySpaceLayout = ({
   children: ReactNode
 }) => {
   const homePath = useHomePath()
+  // The Agenda tab exists only once an administrator has switched it on.
+  const { data: config } = useConfig()
+  const isCalendarEnabled = !!config?.calendar?.enabled
   return (
     // These screens carry their own sidebar and account menu; the global
     // header would duplicate the logo. Declaring it here keeps visibility
@@ -89,7 +95,7 @@ export const MySpaceLayout = ({
               overflowX: { base: 'auto', md: 'visible' },
             })}
           >
-            {NAV.map(({ key, label, Icon }) => {
+            {NAV.filter((n) => n.key !== 'agenda' || isCalendarEnabled).map(({ key, label, Icon }) => {
               const active = section === key
               return (
                 <Link

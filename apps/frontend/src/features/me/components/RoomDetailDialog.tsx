@@ -11,6 +11,7 @@ import {
   fetchMyRoom,
   inviteAll,
   removeInvitee,
+  searchPeople,
   setCoOrganizer,
   updateRoom,
 } from '../api/meApi'
@@ -296,7 +297,8 @@ const InviteesSection = ({
 
       <div className={css({ marginTop: '0.75rem' })}>
         <InviteePicker
-          roomId={room.id}
+          id={`room-${room.id}`}
+          search={(q) => searchPeople(room.id, q)}
           isAdding={add.isPending}
           onPick={(email) => {
             setFeedback(null)

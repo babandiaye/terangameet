@@ -16,7 +16,8 @@ import { CreateMeetingMenu } from '@/features/home/components/CreateMeetingMenu'
 import { JoinMeetingDialog } from '@/features/home/components/JoinMeetingDialog'
 import { Badge, Table, Th, Td } from '@/components/console/ui'
 import { formatDateTime, formatDuration, formatRelative } from '@/components/console/utils'
-import { fetchMyDashboard } from '../api/meApi'
+import { fetchMyDashboard, fetchSchedule } from '../api/meApi'
+import { useConfig } from '@/api/useConfig'
 
 const TONES = {
   blue: { bg: '#EAF0FF', fg: '#3B5BDB' },
@@ -179,6 +180,8 @@ export const MyDashboardPage = () => {
         />
       </div>
 
+      <UpcomingMeetings />
+
       <div>
         <div
           className={css({
@@ -244,6 +247,82 @@ export const MyDashboardPage = () => {
           </tbody>
         </Table>
       </div>
+    </div>
+  )
+}
+
+/** The next three scheduled meetings, when the calendar is enabled. */
+const UpcomingMeetings = () => {
+  const { data: config } = useConfig()
+  const enabled = !!config?.calendar?.enabled
+  const { data } = useQuery({
+    queryKey: ['me', 'schedule'],
+    queryFn: fetchSchedule,
+    enabled,
+  })
+  if (!enabled || !data) return null
+  const next = data.results.slice(0, 3)
+
+  return (
+    <div>
+      <div
+        className={css({
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          marginBottom: '0.7rem',
+        })}
+      >
+        <h3 className={css({ fontSize: '1.05rem', fontWeight: 700, color: 'greyscale.1000' })}>
+          Prochaines réunions
+        </h3>
+        <Link to="/mon-espace/agenda" className={css({ fontSize: '0.85rem', color: 'primary.800', fontWeight: 600 })}>
+          {next.length ? 'Tout l’agenda' : 'Planifier une réunion'}
+        </Link>
+      </div>
+      {next.length === 0 ? (
+        <p className={css({ color: 'greyscale.600', fontSize: '0.9rem' })}>Aucune réunion planifiée.</p>
+      ) : (
+        <ul className={css({ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.5rem' })}>
+          {next.map((m) => (
+            <li
+              key={m.id}
+              className={css({
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: '0.4rem 1rem',
+                padding: '0.7rem 1rem',
+                border: '1px solid',
+                borderColor: 'greyscale.200',
+                borderRadius: '12px',
+                backgroundColor: 'white',
+              })}
+            >
+              <span className={css({ fontWeight: 600, minWidth: '11rem', fontVariantNumeric: 'tabular-nums' })}>
+                {new Date(m.starts_at).toLocaleString('fr-FR', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+              <span className={css({ flex: '1 1 12rem', minWidth: 0, fontWeight: 700, overflowWrap: 'anywhere' })}>
+                {m.title}
+              </span>
+              <a
+                href={m.room.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={css({ color: 'primary.800', fontWeight: 600, fontSize: '0.875rem' })}
+              >
+                Rejoindre
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

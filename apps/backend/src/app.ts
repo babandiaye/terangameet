@@ -23,6 +23,7 @@ import { recordingRoomRouter, recordingsRouter } from "./routes/recording";
 import { adminRouter } from "./routes/admin";
 import { meRouter } from "./routes/me";
 import { myRoomsRouter } from "./routes/myRooms";
+import { scheduleRouter } from "./routes/schedule";
 import { authRouter } from "./routes/auth";
 import { authLimiter, adminLimiter } from "./middleware/rateLimit";
 import { logger } from "./lib/logger";
@@ -69,6 +70,7 @@ export function createApp() {
   app.use(`${api}/recordings`, recordingsRouter);
   app.use(`${api}/admin`, adminLimiter, adminRouter);
   app.use(`${api}/me/rooms`, myRoomsRouter); // rooms I organise (before /me)
+  app.use(`${api}/me/schedule`, scheduleRouter); // scheduled meetings (before /me)
   app.use(`${api}/me`, meRouter); // personal space: dashboard, history, recordings
   // Room sub-routers share the /rooms base; specific action paths are matched first.
   // Seven routers share the /rooms prefix, so a path-less router.use(guard) in

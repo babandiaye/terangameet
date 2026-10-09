@@ -1,6 +1,9 @@
 import { fetchApi } from '@/api/fetchApi'
 import type {
   AddInviteesResult,
+  MailReport,
+  ScheduleInput,
+  ScheduledMeeting,
   MyDashboard,
   MyMeeting,
   MyMeetingDetail,
@@ -33,7 +36,7 @@ export const fetchMyRecordings = (params: { page?: number }) =>
 
 /* ---------------------------------------------------------------- rooms -- */
 
-export const fetchMyRooms = (params: { page?: number }) =>
+export const fetchMyRooms = (params: { page?: number; pageSize?: number }) =>
   fetchApi<Paginated<MyRoom>>(`/me/rooms/${qs(params)}`)
 
 export const fetchMyRoom = (id: string) => fetchApi<MyRoomDetail>(`/me/rooms/${id}/`)
@@ -75,4 +78,30 @@ export const inviteAll = (id: string, message?: string) =>
 export const searchPeople = (roomId: string, q: string) =>
   fetchApi<{ results: { id: string; full_name: string | null; email: string }[] }>(
     `/me/rooms/${roomId}/people/${qs({ q })}`
+  )
+
+/* --------------------------------------------------------------- agenda -- */
+
+export const fetchSchedule = () =>
+  fetchApi<{ results: ScheduledMeeting[] }>('/me/schedule/')
+
+export const createScheduledMeeting = (body: ScheduleInput) =>
+  fetchApi<{ meeting: ScheduledMeeting; mail: MailReport }>('/me/schedule/', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+
+export const updateScheduledMeeting = (id: string, body: Partial<ScheduleInput>) =>
+  fetchApi<{ meeting: ScheduledMeeting; mail: MailReport }>(`/me/schedule/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+
+export const cancelScheduledMeeting = (id: string) =>
+  fetchApi<{ mail: MailReport }>(`/me/schedule/${id}/`, { method: 'DELETE' })
+
+/** Members to suggest as guests of a scheduled meeting. */
+export const searchGuests = (q: string) =>
+  fetchApi<{ results: { id: string; full_name: string | null; email: string }[] }>(
+    `/me/schedule/people/${qs({ q })}`
   )

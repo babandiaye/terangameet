@@ -72,3 +72,17 @@ export const fetchAdminRecordings = (params: { page?: number; sort?: string; ord
 
 /** Administrators only: the link stops working and the room's recordings go with it. */
 export const deleteAdminRoom = (id: string) => fetchApi<void>(`/rooms/${id}/`, { method: 'DELETE' })
+
+export interface CalendarSettings {
+  enabled: boolean
+  /** Invitations go by email: without SMTP the calendar cannot work. */
+  mail_configured: boolean
+}
+
+export const fetchCalendarSettings = () => fetchApi<CalendarSettings>('/admin/settings/calendar/')
+
+export const setCalendarEnabled = (enabled: boolean) =>
+  fetchApi<CalendarSettings>('/admin/settings/calendar/', {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  })

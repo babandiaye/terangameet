@@ -4,7 +4,14 @@ import { css } from '@/styled-system/css'
 import { RiDeleteBin6Line } from '@remixicon/react'
 import { useConfig } from '@/api/useConfig'
 import { Card } from '@/components/console/ui'
-import { fetchPurgeConfig, setPurgePeriod, runPurge } from '../api/adminApi'
+import {
+  fetchCalendarSettings,
+  fetchPurgeConfig,
+  setCalendarEnabled,
+  setPurgePeriod,
+  runPurge,
+} from '../api/adminApi'
+import { Field } from '@/primitives'
 
 const Row = ({ label, value }: { label: string; value: string }) => (
   <div
@@ -46,6 +53,8 @@ export const SettingsPage = () => {
         <Row label="Sous-titres en direct" value={config?.subtitle?.enabled ? 'Activé' : 'Désactivé'} />
       </Card>
 
+      <CalendarSection />
+
       {/* Hidden entirely when PURGE_RECORDINGS_ENABLED=false. */}
       <PurgeSection />
 
@@ -60,6 +69,55 @@ export const SettingsPage = () => {
         </p>
       </Card>
     </div>
+  )
+}
+
+/**
+ * The calendar (scheduled meetings + invitations) is off until switched on
+ * here. It applies to everyone at once: the "Agenda" tab appears in each
+ * personal space on its next page load.
+ */
+const CalendarSection = () => {
+  const qc = useQueryClient()
+  const { data } = useQuery({ queryKey: ['admin', 'settings', 'calendar'], queryFn: fetchCalendarSettings })
+  const toggle = useMutation({
+    mutationFn: setCalendarEnabled,
+    onSuccess: (next) => {
+      qc.setQueryData(['admin', 'settings', 'calendar'], next)
+      qc.invalidateQueries({ queryKey: ['config'] })
+    },
+  })
+  if (!data) return null
+
+  return (
+    <Card>
+      <h3 className={css({ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.4rem' })}>Agenda</h3>
+      <p className={css({ fontSize: '0.9rem', color: 'greyscale.700', lineHeight: 1.6, marginBottom: '0.9rem' })}>
+        Permet à chaque utilisateur de planifier des réunions à une date donnée et d’inviter des participants.
+        Les invités reçoivent une invitation d’agenda par email : Gmail propose Oui / Non / Peut-être et ajoute la
+        réunion, avec son lien TerangaMeet, à leur Google Agenda.
+      </p>
+      {data.mail_configured ? (
+        <Field
+          type="switch"
+          label={data.enabled ? 'Agenda activé' : 'Agenda désactivé'}
+          description="Ajoute l’onglet « Agenda » dans l’espace de chaque utilisateur."
+          isSelected={toggle.isPending ? toggle.variables : data.enabled}
+          isDisabled={toggle.isPending}
+          onChange={(enabled) => toggle.mutate(enabled)}
+          wrapperProps={{ noMargin: true }}
+        />
+      ) : (
+        <p className={css({ fontSize: '0.9rem', color: 'danger.600' })}>
+          L’envoi d’emails (SMTP) n’est pas configuré sur le serveur : l’agenda ne peut pas être activé.
+        </p>
+      )}
+      {toggle.isError && (
+        <p role="alert" className={css({ fontSize: '0.85rem', color: 'danger.600', marginTop: '0.5rem' })}>
+          Le réglage n’a pas pu être enregistré.
+        </p>
+      )}
+    </Card>
   )
 }
 

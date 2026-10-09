@@ -11,7 +11,6 @@ import { css } from '@/styled-system/css'
 import { RiMailAddLine } from '@remixicon/react'
 import { Box, Button } from '@/primitives'
 import { StyledPopover } from '@/primitives/StyledPopover'
-import { searchPeople } from '../api/meApi'
 
 /** Same shape the server accepts; the server re-checks anyway. */
 const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
@@ -36,12 +35,25 @@ const initials = (name: string | null, email: string) =>
  * sign-in.
  */
 export const InviteePicker = ({
-  roomId,
-  isAdding,
+  id,
+  search,
+  exclude = [],
+  label = 'Ajouter des participants',
+  isAdding = false,
   onPick,
 }: {
-  roomId: string
-  isAdding: boolean
+  /** Unique per picker instance (cache key and hint id). */
+  id: string
+  /** Server-side member search for this context (room list, meeting guests). */
+  search: (
+    q: string
+  ) => Promise<{
+    results: { id: string; full_name: string | null; email: string }[]
+  }>
+  /** Addresses already chosen: not suggested again. */
+  exclude?: string[]
+  label?: string
+  isAdding?: boolean
   onPick: (email: string) => void
 }) => {
   const [input, setInput] = useState('')
@@ -54,8 +66,8 @@ export const InviteePicker = ({
   }, [input])
 
   const { data, isFetching } = useQuery({
-    queryKey: ['me', 'room', roomId, 'people', query],
-    queryFn: () => searchPeople(roomId, query),
+    queryKey: ['people', id, query],
+    queryFn: () => search(query),
     enabled: query.length >= 2,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -65,19 +77,23 @@ export const InviteePicker = ({
   const suggestions = useMemo<Suggestion[]>(() => {
     const members: Suggestion[] =
       input.trim().length >= 2
-        ? (data?.results ?? []).map((m) => ({
-            key: `member:${m.id}`,
-            kind: 'member',
-            email: m.email,
-            name: m.full_name,
-          }))
+        ? (data?.results ?? [])
+            .filter((m) => !exclude.includes(m.email))
+            .map((m) => ({
+              key: `member:${m.id}`,
+              kind: 'member',
+              email: m.email,
+              name: m.full_name,
+            }))
         : []
     const isNewAddress =
-      EMAIL_RE.test(typed) && !members.some((m) => m.email === typed)
+      EMAIL_RE.test(typed) &&
+      !exclude.includes(typed) &&
+      !members.some((m) => m.email === typed)
     return isNewAddress
       ? [...members, { key: `email:${typed}`, kind: 'email', email: typed }]
       : members
-  }, [data, input, typed])
+  }, [data, input, typed, exclude])
 
   const pick = (s: Suggestion | undefined) => {
     if (!s) return
@@ -101,7 +117,7 @@ export const InviteePicker = ({
       })}
     >
       <ComboBox
-        aria-describedby={`invitee-hint-${roomId}`}
+        aria-describedby={`invitee-hint-${id}`}
         inputValue={input}
         onInputChange={setInput}
         selectedKey={null}
@@ -114,7 +130,7 @@ export const InviteePicker = ({
         className={css({ minWidth: 0 })}
       >
         <Label className={css({ display: 'block', fontSize: '0.875rem' })}>
-          Ajouter des participants
+          {label}
         </Label>
         <Input
           placeholder="Nom ou adresse email"
@@ -237,7 +253,7 @@ export const InviteePicker = ({
         Ajouter
       </Button>
       <p
-        id={`invitee-hint-${roomId}`}
+        id={`invitee-hint-${id}`}
         className={css({
           gridColumn: '1 / -1',
           color: 'greyscale.600',
