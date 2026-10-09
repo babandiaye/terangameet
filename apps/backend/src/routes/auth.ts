@@ -97,10 +97,22 @@ authRouter.get('/callback/', async (req, res) => {
     if (!user) {
       return res.redirect(safeReturnTo(flow.returnTo, env.APP_BASE_URL))
     }
+    // A deactivated account cannot sign in, even with valid SenID credentials.
+    if (!user.isActive) {
+      logger.warn(`[auth] sign-in refused for deactivated account ${user.email}`)
+      return res.redirect(new URL('/?compte=desactive', env.APP_BASE_URL).toString())
+    }
 
+    // A fresh session id at sign-in: an id planted in the browser before the
+    // login (session fixation) is worthless afterwards. Nothing of the guest
+    // session is carried over — the identity changes with the login anyway.
+    await new Promise<void>((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve()))
+    )
     req.session.userId = user.id
     // Keep the (possibly long) id token for clean RP-initiated logout.
-    ;(req.session as unknown as { idToken?: string }).idToken = tokenSet.id_token
+    req.session.idToken = tokenSet.id_token
+    await new Promise<void>((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())))
     res.redirect(
       flow.silent
         ? safeReturnTo(flow.returnTo, env.APP_BASE_URL)

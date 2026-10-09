@@ -7,6 +7,7 @@ import { onRoomStarted, onRoomFinished, onParticipant } from '../services/meetin
 import { redis } from '../lib/redis'
 import { LAST_WEBHOOK_KEY } from '../services/health'
 import { endedStatus } from '../lib/egressStatus'
+import { ejectIfDeactivated } from '../services/eject'
 
 export const webhookRouter = Router()
 
@@ -90,6 +91,12 @@ async function handleEvent(event: {
       if (event.room) await onRoomFinished(event.room)
       break
     case 'participant_joined':
+      // A deactivated account still holding a valid token is shown the door.
+      if (event.room?.name && event.participant?.identity) {
+        await ejectIfDeactivated(event.room.name, event.participant.identity).catch((e) =>
+          logger.warn(`[webhook] eject check failed: ${(e as Error).message}`)
+        )
+      }
       if (event.room) await onParticipant(event.room, event.participant ?? {}, 'joined')
       break
     case 'participant_left':

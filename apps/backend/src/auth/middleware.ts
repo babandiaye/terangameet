@@ -11,12 +11,24 @@ declare global {
   }
 }
 
-/** Loads the session user (if any) onto req.user. Never blocks. */
+/**
+ * Loads the session user (if any) onto req.user. Never blocks.
+ *
+ * Checked on every request, so deactivating an account in the admin console
+ * takes effect at once: the person's next request finds them signed out,
+ * whatever device they are on. Same for an account that no longer exists.
+ */
 export async function attachUser(req: Request, _res: Response, next: NextFunction) {
   const userId = req.session?.userId
   if (userId) {
     try {
-      req.user = await prisma.user.findUnique({ where: { id: userId } })
+      const user = await prisma.user.findUnique({ where: { id: userId } })
+      if (user?.isActive) {
+        req.user = user
+      } else {
+        req.user = null
+        delete req.session.userId
+      }
     } catch {
       req.user = null
     }

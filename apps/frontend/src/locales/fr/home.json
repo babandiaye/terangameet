@@ -95,7 +95,8 @@
         "title": "Haute performance",
         "body": "Qualité audio et vidéo qui s'adapte à votre connexion, avec réduction du bruit ambiant."
       }
-    }
+    },
+    "accountDisabled": "Votre compte a été désactivé par un administrateur de la plateforme. Contactez l'équipe informatique de l'UN-CHK si vous pensez qu'il s'agit d'une erreur."
   },
   "createMeetingDialog": {
     "heading": "Nouvelle réunion",

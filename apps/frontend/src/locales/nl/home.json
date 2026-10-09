@@ -66,5 +66,8 @@
     "nameDescription": "Bijv. Aanbestedingscommissie – opening van de offertes. De link wordt nog steeds automatisch aangemaakt.",
     "submitInstant": "Vergadering starten",
     "submitLater": "Link aanmaken"
+  },
+  "landing": {
+    "accountDisabled": "Uw account is gedeactiveerd door een beheerder van het platform. Neem contact op met het IT-team van de UN-CHK als u denkt dat dit een vergissing is."
   }
 }

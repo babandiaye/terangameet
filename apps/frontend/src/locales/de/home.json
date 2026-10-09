@@ -66,5 +66,8 @@
     "nameDescription": "z. B. Vergabeausschuss – Angebotsöffnung. Der Link wird weiterhin automatisch erstellt.",
     "submitInstant": "Besprechung starten",
     "submitLater": "Link erstellen"
+  },
+  "landing": {
+    "accountDisabled": "Ihr Konto wurde von einem Administrator der Plattform deaktiviert. Wenden Sie sich an das IT-Team der UN-CHK, wenn Sie dies für einen Fehler halten."
   }
 }

@@ -95,7 +95,8 @@
         "title": "High performance",
         "body": "Audio and video quality that adapts to your connection, with ambient noise reduction."
       }
-    }
+    },
+    "accountDisabled": "Your account has been deactivated by a platform administrator. Contact the UN-CHK IT team if you think this is a mistake."
   },
   "createMeetingDialog": {
     "heading": "New meeting",

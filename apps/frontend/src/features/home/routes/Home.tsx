@@ -84,6 +84,20 @@ const Home = () => {
   const homePath = useHomePath()
 
   const [redirectFailed, setRedirectFailed] = useState(false)
+  // Set by the server when a deactivated account tries to sign in.
+  const [isAccountDisabled] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get('compte') === 'desactive'
+  )
+  useEffect(() => {
+    if (isAccountDisabled) {
+      window.history.replaceState(
+        window.history.state,
+        '',
+        window.location.pathname
+      )
+    }
+  }, [isAccountDisabled])
   const { data } = useConfig()
 
   // The landing page is for anonymous visitors. A signed-in user belongs in
@@ -127,6 +141,22 @@ const Home = () => {
       <Screen>
         <Hero>
           <div>
+            {isAccountDisabled && (
+              <p
+                role="alert"
+                className={css({
+                  marginBottom: '1.2rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  backgroundColor: 'danger.subtle',
+                  color: 'danger.subtle-text',
+                  fontWeight: 600,
+                  maxWidth: '32rem',
+                })}
+              >
+                {t('landing.accountDisabled')}
+              </p>
+            )}
             <h1
               className={css({
                 fontWeight: 800,

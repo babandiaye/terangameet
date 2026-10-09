@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { logger } from "../lib/logger";
 import { getSetting, setSetting } from "../services/settings";
+import { ejectFromAllRooms } from "../services/eject";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
@@ -535,10 +536,23 @@ adminRouter.patch("/users/:id/", async (req, res) => {
   if (parsed.data.is_admin !== undefined) data.isStaff = parsed.data.is_admin;
   const updated = await prisma.user.update({ where: { id: target.id }, data });
 
+  // Deactivated: out of every meeting in progress, right now. Their token
+  // stays valid for hours, so the webhook also refuses any later join.
+  let ejected = 0;
+  if (target.isActive && !updated.isActive) {
+    try {
+      ejected = await ejectFromAllRooms(updated);
+      logger.info(`[admin] ${updated.email} deactivated by ${req.user!.email}, removed from ${ejected} meeting(s)`);
+    } catch (err) {
+      logger.error(`[admin] could not remove ${updated.email} from meetings`, err);
+    }
+  }
+
   res.json({
     ...userBrief(updated),
     is_admin: updated.isStaff,
     is_active: updated.isActive,
+    ejected_from_meetings: ejected,
   });
 });
 
