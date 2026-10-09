@@ -2,20 +2,20 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'wouter'
 import { css } from '@/styled-system/css'
-import { Badge, Pagination, Table, Th, Td, LoadError } from '@/components/console/ui'
+import {
+  Badge,
+  Pagination,
+  Table,
+  Th,
+  Td,
+  LoadError,
+} from '@/components/console/ui'
 import { formatDateTime, formatDuration } from '@/components/console/utils'
 import { fetchMyRecordings } from '../api/meApi'
-
-/** A recording is only downloadable once the egress has finalized the file. */
-const isReady = (status: string) => status === 'saved' || status === 'notification_succeeded'
-
-const statusLabel = (status: string): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' } => {
-  if (isReady(status)) return { label: 'Disponible', tone: 'success' }
-  if (status === 'active' || status === 'initiated') return { label: 'En cours', tone: 'warning' }
-  if (status === 'stopped') return { label: 'Finalisation…', tone: 'warning' }
-  if (status.startsWith('failed') || status === 'aborted') return { label: 'Échec', tone: 'danger' }
-  return { label: status, tone: 'neutral' }
-}
+import {
+  isRecordingReady,
+  recordingStatusLabel,
+} from '@/components/console/recordingStatus'
 
 export const MyRecordingsPage = () => {
   const [page, setPage] = useState(1)
@@ -26,8 +26,16 @@ export const MyRecordingsPage = () => {
   })
 
   return (
-    <div className={css({ display: 'flex', flexDirection: 'column', gap: '1rem' })}>
-      <p className={css({ color: 'greyscale.600', fontSize: '0.9rem', marginTop: '-0.5rem' })}>
+    <div
+      className={css({ display: 'flex', flexDirection: 'column', gap: '1rem' })}
+    >
+      <p
+        className={css({
+          color: 'greyscale.600',
+          fontSize: '0.9rem',
+          marginTop: '-0.5rem',
+        })}
+      >
         Les enregistrements des réunions auxquelles vous avez participé.
       </p>
 
@@ -51,7 +59,7 @@ export const MyRecordingsPage = () => {
             </thead>
             <tbody>
               {data?.results.map((r) => {
-                const status = statusLabel(r.status)
+                const status = recordingStatusLabel(r.status)
                 const title = r.session?.title || r.room?.name || 'Réunion'
                 return (
                   <tr key={r.id}>
@@ -63,9 +71,13 @@ export const MyRecordingsPage = () => {
                         </span>
                       )}
                     </Td>
-                    <Td>{formatDateTime(r.session?.started_at ?? r.created_at)}</Td>
+                    <Td>
+                      {formatDateTime(r.session?.started_at ?? r.created_at)}
+                    </Td>
                     <Td>{formatDuration(r.session?.duration_sec)}</Td>
-                    <Td>{r.mode === 'transcript' ? 'Transcription' : 'Vidéo'}</Td>
+                    <Td>
+                      {r.mode === 'transcript' ? 'Transcription' : 'Vidéo'}
+                    </Td>
                     <Td>
                       {r.is_expired ? (
                         <Badge tone="neutral">Expiré</Badge>
@@ -75,7 +87,7 @@ export const MyRecordingsPage = () => {
                     </Td>
                     <Td>{r.expired_at ? formatDateTime(r.expired_at) : '—'}</Td>
                     <Td>
-                      {isReady(r.status) && !r.is_expired ? (
+                      {isRecordingReady(r.status) && !r.is_expired ? (
                         <Link
                           to={`/recording/${r.id}`}
                           className={css({

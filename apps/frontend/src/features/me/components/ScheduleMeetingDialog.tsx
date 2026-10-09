@@ -2,8 +2,6 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Label } from 'react-aria-components'
 import { css } from '@/styled-system/css'
-import { RiCloseLine, RiStarFill, RiStarLine } from '@remixicon/react'
-import { Link } from 'wouter'
 import { Button, Dialog, Field, TextArea } from '@/primitives'
 import { RoomLink } from '@/components/console/RoomLink'
 import {
@@ -19,35 +17,12 @@ import type {
   ScheduledMeeting,
 } from '../api/types'
 import { InviteePicker } from './InviteePicker'
+import { GuestChips } from './schedule/GuestChips'
 import { useConfig } from '@/api/useConfig'
 import { ACCESS_LEVELS, errorMessage } from './roomAccessLevels'
-
-const pad = (n: number) => String(n).padStart(2, '0')
-const toDateInput = (d: Date) =>
-  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-const toTimeInput = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
-
-/** Next half hour from now, as Google Agenda proposes. */
-const nextSlot = () => {
-  const d = new Date()
-  d.setSeconds(0, 0)
-  d.setMinutes(d.getMinutes() < 30 ? 30 : 60)
-  return d
-}
-
-const nativeInput = css({
-  width: 'full',
-  marginTop: '0.25rem',
-  paddingY: '0.45rem',
-  paddingX: '0.6rem',
-  border: '1px solid',
-  borderColor: 'control.border',
-  borderRadius: '10px',
-  backgroundColor: 'white',
-  fontSize: '0.95rem',
-})
-const fieldLabel = css({ display: 'block', fontSize: '0.875rem' })
-const note = css({ color: 'greyscale.600', fontSize: '0.85rem' })
+import { toDateInput, toTimeInput, nextSlot } from './schedule/time'
+import { nativeInput, fieldLabel, note } from './schedule/styles'
+import { CreatedConfirmation } from './schedule/CreatedConfirmation'
 
 /**
  * Plan a meeting — or change one — Google Agenda style: title, date and
@@ -421,106 +396,21 @@ const ScheduleForm = ({
           }}
         />
         {guests.length > 0 && (
-          <ul
-            aria-label="Invités"
-            className={css({
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '0.4rem',
-              listStyle: 'none',
-              padding: 0,
-              margin: '0.6rem 0 0',
-            })}
-          >
-            {guests.map((email) => {
-              const isCoHost = coHosts.includes(email)
-              const who = names[email] || email
-              return (
-                <li
-                  key={email}
-                  className={css({
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    padding: '0.2rem 0.3rem 0.2rem 0.65rem',
-                    borderRadius: '999px',
-                    backgroundColor: isCoHost ? 'primary.800' : 'primary.100',
-                    color: isCoHost ? 'white' : 'primary.800',
-                    fontSize: '0.85rem',
-                    maxWidth: '100%',
-                  })}
-                >
-                  <span className={css({ overflowWrap: 'anywhere' })}>
-                    {who}
-                    {isCoHost && (
-                      <span className={css({ fontWeight: 600 })}>
-                        {' '}
-                        · co-animateur
-                      </span>
-                    )}
-                  </span>
-                  {canManageCoHosts && (
-                    <button
-                      type="button"
-                      aria-pressed={isCoHost}
-                      aria-label={`${who} co-animateur`}
-                      title={
-                        isCoHost
-                          ? 'Retirer le rôle de co-animateur'
-                          : 'Désigner co-animateur'
-                      }
-                      onClick={() =>
-                        setCoHosts((c) =>
-                          c.includes(email)
-                            ? c.filter((x) => x !== email)
-                            : [...c, email]
-                        )
-                      }
-                      className={css({
-                        display: 'inline-flex',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: 'inherit',
-                        padding: '0.1rem',
-                        borderRadius: '50%',
-                        _hover: {
-                          backgroundColor: 'primary.200',
-                          color: 'primary.800',
-                        },
-                      })}
-                    >
-                      {isCoHost ? (
-                        <RiStarFill size={16} aria-hidden="true" />
-                      ) : (
-                        <RiStarLine size={16} aria-hidden="true" />
-                      )}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    aria-label={`Retirer ${who}`}
-                    onClick={() => {
-                      setGuests((g) => g.filter((x) => x !== email))
-                      setCoHosts((c) => c.filter((x) => x !== email))
-                    }}
-                    className={css({
-                      display: 'inline-flex',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'inherit',
-                      padding: '0.1rem',
-                      borderRadius: '50%',
-                      _hover: { backgroundColor: 'primary.200' },
-                    })}
-                  >
-                    <RiCloseLine size={16} aria-hidden="true" />
-                  </button>
-                </li>
+          <GuestChips
+            guests={guests}
+            names={names}
+            coHosts={coHosts}
+            canManageCoHosts={canManageCoHosts}
+            onToggleCoHost={(email) =>
+              setCoHosts((c) =>
+                c.includes(email) ? c.filter((x) => x !== email) : [...c, email]
               )
-            })}
-          </ul>
+            }
+            onRemove={(email) => {
+              setGuests((g) => g.filter((x) => x !== email))
+              setCoHosts((c) => c.filter((x) => x !== email))
+            }}
+          />
         )}
       </div>
 
@@ -566,83 +456,5 @@ const ScheduleForm = ({
           : 'Chaque invité reçoit une invitation d’agenda par email ; vous la recevez aussi, pour avoir la réunion dans votre propre agenda.'}
       </p>
     </form>
-  )
-}
-
-/**
- * Shown once a meeting is planned: when it opened from the « Créer une
- * réunion » menu, this replaces the old « date ultérieure » link screen —
- * same link to copy, plus where the invitations went.
- */
-const CreatedConfirmation = ({
-  meeting,
-  mail,
-  onClose,
-}: {
-  meeting: ScheduledMeeting
-  mail: MailReport
-  onClose: () => void
-}) => {
-  const when = new Date(meeting.starts_at).toLocaleString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  return (
-    <div
-      className={css({
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
-        marginTop: '0.5rem',
-      })}
-    >
-      <p className={css({ fontWeight: 700, fontSize: '1.05rem' })}>
-        {meeting.title}
-      </p>
-      <p className={note}>{when.charAt(0).toUpperCase() + when.slice(1)}</p>
-      <RoomLink slug={meeting.room.slug} />
-      <p className={css({ fontSize: '0.9rem' })}>
-        {meeting.attendees.length === 0
-          ? 'Aucun invité : partagez le lien ci-dessus, ou ajoutez des invités depuis l’agenda.'
-          : mail.via === 'google'
-            ? `Réunion créée dans votre Google Agenda : Google envoie l’invitation à ${meeting.attendees.length} invité(s).`
-            : `Invitation envoyée par email à ${meeting.attendees.filter((a) => !mail.failed.includes(a.email)).length} invité(s).`}
-      </p>
-      {mail.failed.length > 0 && (
-        <p
-          role="alert"
-          className={css({ color: 'danger.600', fontSize: '0.9rem' })}
-        >
-          L’envoi a échoué pour : {mail.failed.join(', ')}.
-        </p>
-      )}
-      <div
-        className={css({ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' })}
-      >
-        <Link
-          to="/mon-espace/agenda"
-          onClick={onClose}
-          className={css({
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '0.5rem 1rem',
-            borderRadius: '10px',
-            backgroundColor: 'primary.800',
-            color: 'white',
-            fontWeight: 600,
-            textDecoration: 'none',
-            _hover: { backgroundColor: 'primary.action' },
-          })}
-        >
-          Voir dans l’agenda
-        </Link>
-        <Button variant="secondary" onPress={onClose}>
-          Fermer
-        </Button>
-      </div>
-    </div>
   )
 }

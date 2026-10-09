@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { token } from '@/styled-system/tokens'
 import { useQuery } from '@tanstack/react-query'
 import { css } from '@/styled-system/css'
 import { RiRefreshLine } from '@remixicon/react'
@@ -10,19 +11,29 @@ const STATUS_META: Record<
   HealthStatus,
   { label: string; dot: string; fg: string; bg: string }
 > = {
-  ok: { label: 'Opérationnel', dot: '#1E9E6A', fg: '#1E7E4F', bg: '#E6F6EF' },
-  down: { label: 'Hors service', dot: '#D6453D', fg: '#B42318', bg: '#FDE2E1' },
+  ok: {
+    label: 'Opérationnel',
+    dot: token('colors.brand.green'),
+    fg: token('colors.console.ok-text'),
+    bg: token('colors.brand.green-subtle'),
+  },
+  down: {
+    label: 'Hors service',
+    dot: token('colors.console.down-dot'),
+    fg: token('colors.console.down-text'),
+    bg: token('colors.console.down-bg'),
+  },
   disabled: {
     label: 'Désactivé',
-    dot: '#98A2B3',
-    fg: '#667085',
-    bg: '#F2F4F7',
+    dot: token('colors.console.unknown-dot'),
+    fg: token('colors.console.unknown-text'),
+    bg: token('colors.console.unknown-bg'),
   },
   unknown: {
     label: 'En attente',
-    dot: '#E8870B',
-    fg: '#B25E00',
-    bg: '#FFF1E2',
+    dot: token('colors.brand.orange'),
+    fg: token('colors.console.warn-text'),
+    bg: token('colors.brand.orange-subtle'),
   },
 }
 
@@ -79,10 +90,10 @@ export const StatusPage = () => {
           })}
           style={{
             backgroundColor: anyDown
-              ? '#FDECEA'
+              ? token('colors.console.band-down-bg')
               : allOk
-                ? '#E6F6EF'
-                : '#FFF8EC',
+                ? token('colors.brand.green-subtle')
+                : token('colors.console.band-warn-bg'),
           }}
         >
           <div className={css({ fontWeight: 700, fontSize: '1rem' })}>
@@ -102,7 +113,7 @@ export const StatusPage = () => {
             <span
               className={css({ fontSize: '0.8rem', color: 'greyscale.600' })}
             >
-              Vérifié à {new Date(data.checkedAt).toLocaleTimeString('fr-FR')}
+              Vérifié à {new Date(data.checked_at).toLocaleTimeString('fr-FR')}
             </span>
             <button
               type="button"
@@ -220,7 +231,7 @@ const ComponentCard = ({ c }: { c: ComponentHealth }) => {
       >
         {c.detail}
       </div>
-      {c.latencyMs != null && (
+      {c.latency_ms != null && (
         <div
           className={css({
             fontSize: '0.74rem',
@@ -228,7 +239,7 @@ const ComponentCard = ({ c }: { c: ComponentHealth }) => {
             marginTop: '0.4rem',
           })}
         >
-          Latence {c.latencyMs} ms
+          Latence {c.latency_ms} ms
         </div>
       )}
     </Card>

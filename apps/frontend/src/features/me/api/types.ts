@@ -1,11 +1,6 @@
 /** Payloads of the personal-space API (`/api/v1.0/me/...`). */
 
-export interface Paginated<T> {
-  count: number
-  page: number
-  page_size: number
-  results: T[]
-}
+export type { Paginated } from '@/api/query'
 
 /** The caller's own attendance inside a given session. */
 export interface MyAttendance {
@@ -27,7 +22,10 @@ export interface MyMeeting {
   me: MyAttendance
 }
 
-export interface MyMeetingDetail extends Omit<MyMeeting, 'participants' | 'has_recording'> {
+export interface MyMeetingDetail extends Omit<
+  MyMeeting,
+  'participants' | 'has_recording'
+> {
   participants: {
     id: string
     name: string

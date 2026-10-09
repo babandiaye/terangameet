@@ -72,8 +72,10 @@ export const notifyRecordingSaveInProgress = (
  * browser console: the moderator saw nothing happen and could not know why.
  */
 export const showActionError = (error: unknown, fallback: string) => {
+  // The server's reason helps when it is a refusal (4xx: rights, state); a
+  // technical failure (5xx) only repeats what the fallback already says.
   const detail =
-    error instanceof ApiError
+    error instanceof ApiError && error.statusCode < 500
       ? (error.body as { detail?: unknown } | undefined)?.detail
       : undefined
   toastQueue.add(

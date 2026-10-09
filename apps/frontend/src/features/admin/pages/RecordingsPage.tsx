@@ -3,15 +3,20 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'wouter'
 import { css } from '@/styled-system/css'
 import { fetchAdminRecordings } from '../api/adminApi'
-import { Badge, Pagination, Table, Th, Td, SortableTh, LoadError } from '@/components/console/ui'
+import {
+  Badge,
+  Pagination,
+  Table,
+  Th,
+  Td,
+  SortableTh,
+  LoadError,
+} from '@/components/console/ui'
 import { formatDateTime } from '@/components/console/utils'
-
-const statusTone = (s: string): 'success' | 'warning' | 'danger' | 'neutral' => {
-  if (s === 'saved' || s === 'notification_succeeded') return 'success'
-  if (s === 'active' || s === 'initiated') return 'warning'
-  if (s.startsWith('failed') || s === 'aborted') return 'danger'
-  return 'neutral'
-}
+import {
+  isRecordingReady,
+  recordingStatusLabel,
+} from '@/components/console/recordingStatus'
 
 type SortField = 'date' | 'user'
 type Order = 'asc' | 'desc'
@@ -38,7 +43,9 @@ export const RecordingsPage = () => {
   }
 
   return (
-    <div className={css({ display: 'flex', flexDirection: 'column', gap: '1rem' })}>
+    <div
+      className={css({ display: 'flex', flexDirection: 'column', gap: '1rem' })}
+    >
       {isLoading ? (
         <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
       ) : isError ? (
@@ -49,12 +56,20 @@ export const RecordingsPage = () => {
             <thead>
               <tr>
                 <Th>Salle</Th>
-                <SortableTh active={sort === 'user'} order={order} onClick={() => toggleSort('user')}>
+                <SortableTh
+                  active={sort === 'user'}
+                  order={order}
+                  onClick={() => toggleSort('user')}
+                >
                   Propriétaire
                 </SortableTh>
                 <Th>Type</Th>
                 <Th>Statut</Th>
-                <SortableTh active={sort === 'date'} order={order} onClick={() => toggleSort('date')}>
+                <SortableTh
+                  active={sort === 'date'}
+                  order={order}
+                  onClick={() => toggleSort('date')}
+                >
                   Créé le
                 </SortableTh>
                 <Th>Expire le</Th>
@@ -65,20 +80,28 @@ export const RecordingsPage = () => {
               {data?.results.map((r) => (
                 <tr key={r.id}>
                   <Td>
-                    <span className={css({ fontWeight: 600 })}>{r.room?.name || '—'}</span>
+                    <span className={css({ fontWeight: 600 })}>
+                      {r.room?.name || '—'}
+                    </span>
                   </Td>
                   <Td>{r.creator?.full_name || r.creator?.email || '—'}</Td>
                   <Td>{r.mode === 'transcript' ? 'Transcription' : 'Vidéo'}</Td>
                   <Td>
-                    <Badge tone={statusTone(r.status)}>{r.status}</Badge>
+                    <Badge tone={recordingStatusLabel(r.status).tone}>
+                      {recordingStatusLabel(r.status).label}
+                    </Badge>
                   </Td>
                   <Td>{formatDateTime(r.created_at)}</Td>
                   <Td>{r.expired_at ? formatDateTime(r.expired_at) : '—'}</Td>
                   <Td>
-                    {r.status === 'saved' || r.status === 'notification_succeeded' ? (
+                    {isRecordingReady(r.status) ? (
                       <Link
                         to={`/recording/${r.id}`}
-                        className={css({ color: 'primary.800', fontWeight: 600, textDecoration: 'underline' })}
+                        className={css({
+                          color: 'primary.800',
+                          fontWeight: 600,
+                          textDecoration: 'underline',
+                        })}
                       >
                         Ouvrir
                       </Link>
@@ -91,13 +114,22 @@ export const RecordingsPage = () => {
               {data && data.results.length === 0 && (
                 <tr>
                   <Td>
-                    <span className={css({ color: 'greyscale.500' })}>Aucun enregistrement.</span>
+                    <span className={css({ color: 'greyscale.500' })}>
+                      Aucun enregistrement.
+                    </span>
                   </Td>
                 </tr>
               )}
             </tbody>
           </Table>
-          {data && <Pagination page={data.page} pageSize={data.page_size} count={data.count} onPage={setPage} />}
+          {data && (
+            <Pagination
+              page={data.page}
+              pageSize={data.page_size}
+              count={data.count}
+              onPage={setPage}
+            />
+          )}
         </>
       )}
     </div>

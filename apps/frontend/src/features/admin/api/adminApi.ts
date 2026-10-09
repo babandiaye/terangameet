@@ -1,6 +1,6 @@
 import { fetchApi } from '@/api/fetchApi'
+import { qs } from '@/api/query'
 import type {
-  AdminStats,
   AdminDashboard,
   AdminUserRow,
   AdminUserDetail,
@@ -13,18 +13,8 @@ import type {
   Paginated,
 } from './types'
 
-const qs = (params: Record<string, string | number | undefined>) => {
-  const sp = new URLSearchParams()
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== '') sp.set(k, String(v))
-  })
-  const s = sp.toString()
-  return s ? `?${s}` : ''
-}
-
-export const fetchAdminStats = () => fetchApi<AdminStats>('/admin/stats/')
-
-export const fetchAdminDashboard = () => fetchApi<AdminDashboard>('/admin/dashboard/')
+export const fetchAdminDashboard = () =>
+  fetchApi<AdminDashboard>('/admin/dashboard/')
 
 export const fetchAdminRooms = (params: {
   page?: number
@@ -38,19 +28,29 @@ export const fetchAdminStatus = () => fetchApi<StatusReport>('/admin/status/')
 export const fetchPurgeConfig = () => fetchApi<PurgeConfig>('/admin/purge/')
 
 export const setPurgePeriod = (period: string) =>
-  fetchApi<PurgeConfig>('/admin/purge/', { method: 'PUT', body: JSON.stringify({ period }) })
+  fetchApi<PurgeConfig>('/admin/purge/', {
+    method: 'PUT',
+    body: JSON.stringify({ period }),
+  })
 
 export const runPurge = () =>
-  fetchApi<{ deleted: number; period: string; eligible_count: number }>('/admin/purge/run/', {
-    method: 'POST',
-  })
+  fetchApi<{ deleted: number; period: string; eligible_count: number }>(
+    '/admin/purge/run/',
+    {
+      method: 'POST',
+    }
+  )
 
 export const fetchAdminUsers = (params: { page?: number; search?: string }) =>
   fetchApi<Paginated<AdminUserRow>>(`/admin/users/${qs(params)}`)
 
-export const fetchAdminUser = (id: string) => fetchApi<AdminUserDetail>(`/admin/users/${id}/`)
+export const fetchAdminUser = (id: string) =>
+  fetchApi<AdminUserDetail>(`/admin/users/${id}/`)
 
-export const patchAdminUser = (id: string, body: { is_active?: boolean; is_admin?: boolean }) =>
+export const patchAdminUser = (
+  id: string,
+  body: { is_active?: boolean; is_admin?: boolean }
+) =>
   fetchApi<AdminUserRow>(`/admin/users/${id}/`, {
     method: 'PATCH',
     body: JSON.stringify(body),
@@ -67,11 +67,15 @@ export const fetchAdminMeetings = (params: {
 export const fetchAdminMeeting = (id: string) =>
   fetchApi<AdminMeetingDetail>(`/admin/meetings/${id}/`)
 
-export const fetchAdminRecordings = (params: { page?: number; sort?: string; order?: string }) =>
-  fetchApi<Paginated<AdminRecording>>(`/admin/recordings/${qs(params)}`)
+export const fetchAdminRecordings = (params: {
+  page?: number
+  sort?: string
+  order?: string
+}) => fetchApi<Paginated<AdminRecording>>(`/admin/recordings/${qs(params)}`)
 
 /** Administrators only: the link stops working and the room's recordings go with it. */
-export const deleteAdminRoom = (id: string) => fetchApi<void>(`/rooms/${id}/`, { method: 'DELETE' })
+export const deleteAdminRoom = (id: string) =>
+  fetchApi<void>(`/rooms/${id}/`, { method: 'DELETE' })
 
 export interface CalendarSettings {
   enabled: boolean
@@ -84,9 +88,13 @@ export interface CalendarSettings {
   }
 }
 
-export const fetchCalendarSettings = () => fetchApi<CalendarSettings>('/admin/settings/calendar/')
+export const fetchCalendarSettings = () =>
+  fetchApi<CalendarSettings>('/admin/settings/calendar/')
 
-export const updateCalendarSettings = (body: { enabled?: boolean; google_enabled?: boolean }) =>
+export const updateCalendarSettings = (body: {
+  enabled?: boolean
+  google_enabled?: boolean
+}) =>
   fetchApi<CalendarSettings>('/admin/settings/calendar/', {
     method: 'PUT',
     body: JSON.stringify(body),

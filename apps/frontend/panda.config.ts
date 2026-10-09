@@ -349,6 +349,32 @@ const config: Config = {
           'icon-orange': { value: '#EA580C' },
           'icon-purple': { value: '#9333EA' },
         },
+        // Consoles (admin, Mon espace) : états des services, badges, graphiques.
+        // Mêmes valeurs qu'avant leur centralisation ici — aucun changement visuel.
+        console: {
+          'chart-grid': { value: '#EEF0F4' },
+          'chart-tick': { value: '#94969C' },
+          'ok-text': { value: '#1E7E4F' },
+          'down-dot': { value: '#D6453D' },
+          'down-text': { value: '#B42318' },
+          'down-bg': { value: '#FDE2E1' },
+          'unknown-dot': { value: '#98A2B3' },
+          'unknown-text': { value: '#667085' },
+          'unknown-bg': { value: '#F2F4F7' },
+          'warn-text': { value: '#B25E00' },
+          'band-down-bg': { value: '#FDECEA' },
+          'band-warn-bg': { value: '#FFF8EC' },
+          'badge-success-bg': { value: '#E6F4EA' },
+          'badge-success-text': { value: '#1E7E34' },
+          'badge-warning-bg': { value: '#FFF3CD' },
+          'badge-warning-text': { value: '#8A6D00' },
+        },
+        // Tableau de bord analytique en réunion (fenêtre sombre).
+        analytics: {
+          muted: { value: '#7C8AA5' },
+          'bg-top': { value: '#122244' },
+          'bg-bottom': { value: '#0C1730' },
+        },
         brand: {
           green: { value: '#1E9E6A' },
           'green-subtle': { value: '#E6F6EF' },

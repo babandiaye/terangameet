@@ -5,28 +5,6 @@ export interface AdminUserBrief {
   short_name: string
 }
 
-export interface AdminStats {
-  totals: {
-    users: number
-    active_users: number
-    admins: number
-    rooms: number
-    sessions: number
-    active_sessions: number
-    recordings: number
-    total_duration_sec: number
-    avg_duration_sec: number
-    finished_sessions: number
-  }
-  meetings_per_week: { bucket: string; count: number }[]
-  meetings_per_month: { bucket: string; count: number }[]
-  top_creators: {
-    user: AdminUserBrief | null
-    meetings: number
-    total_duration_sec: number
-  }[]
-}
-
 export interface AdminUserRow extends AdminUserBrief {
   is_admin: boolean
   is_active: boolean
@@ -71,12 +49,7 @@ export interface AdminRecording {
   expired_at: string | null
 }
 
-export interface Paginated<T> {
-  count: number
-  page: number
-  page_size: number
-  results: T[]
-}
+export type { Paginated } from '@/api/query'
 
 /**
  * Chart windows. Each keeps its own bucket size — d7 and d30 are both daily,
@@ -164,12 +137,12 @@ export interface ComponentHealth {
   key: string
   label: string
   status: HealthStatus
-  latencyMs: number | null
+  latency_ms: number | null
   detail: string
 }
 
 export interface StatusReport {
-  checkedAt: string
+  checked_at: string
   components: ComponentHealth[]
 }
 

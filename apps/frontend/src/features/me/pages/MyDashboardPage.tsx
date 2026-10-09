@@ -1,4 +1,3 @@
-import { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'wouter'
 import { useTranslation } from 'react-i18next'
@@ -14,81 +13,14 @@ import { Button } from '@/primitives'
 import { useUser } from '@/features/auth/api/useUser'
 import { CreateMeetingMenu } from '@/features/home/components/CreateMeetingMenu'
 import { JoinMeetingDialog } from '@/features/home/components/JoinMeetingDialog'
-import { Badge, Table, Th, Td } from '@/components/console/ui'
-import { formatDateTime, formatDuration, formatRelative } from '@/components/console/utils'
+import { Badge, Table, Th, Td, StatCard } from '@/components/console/ui'
+import {
+  formatDateTime,
+  formatDuration,
+  formatRelative,
+} from '@/components/console/utils'
 import { fetchMyDashboard, fetchSchedule } from '../api/meApi'
 import { useConfig } from '@/api/useConfig'
-
-const TONES = {
-  blue: { bg: '#EAF0FF', fg: '#3B5BDB' },
-  green: { bg: '#E6F6EF', fg: '#1E9E6A' },
-  orange: { bg: '#FFF1E2', fg: '#E8870B' },
-}
-
-/**
- * Same card as the admin dashboard, minus the week-over-week trend: a personal
- * history has no meaningful comparison baseline, so the footer carries a plain
- * hint instead.
- */
-const StatCard = ({
-  label,
-  value,
-  hint,
-  Icon,
-  tone,
-}: {
-  label: string
-  value: ReactNode
-  hint: string
-  Icon: typeof RiVideoChatLine
-  tone: keyof typeof TONES
-}) => {
-  const colors = TONES[tone]
-  return (
-    <div
-      className={css({
-        backgroundColor: 'white',
-        border: '1px solid',
-        borderColor: 'greyscale.200',
-        borderRadius: '16px',
-        padding: '1.2rem',
-      })}
-    >
-      <div className={css({ display: 'flex', alignItems: 'center', gap: '0.8rem' })}>
-        <div
-          className={css({
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          })}
-          style={{ backgroundColor: colors.bg, color: colors.fg }}
-        >
-          <Icon size={24} />
-        </div>
-        <div>
-          <div className={css({ fontSize: '0.82rem', color: 'greyscale.600' })}>{label}</div>
-          <div
-            className={css({
-              fontSize: '1.9rem',
-              fontWeight: 700,
-              lineHeight: 1.1,
-              color: 'greyscale.1000',
-            })}
-          >
-            {value}
-          </div>
-        </div>
-      </div>
-      <div className={css({ marginTop: '0.8rem', fontSize: '0.78rem', color: 'greyscale.500' })}>
-        {hint}
-      </div>
-    </div>
-  )
-}
 
 export const MyDashboardPage = () => {
   const { user } = useUser()
@@ -98,19 +30,29 @@ export const MyDashboardPage = () => {
     queryFn: fetchMyDashboard,
   })
 
-  if (isLoading) return <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
+  if (isLoading)
+    return <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
   if (isError || !data)
     return (
-      <div className={css({ color: 'danger.600' })}>Impossible de charger votre tableau de bord.</div>
+      <div className={css({ color: 'danger.600' })}>
+        Impossible de charger votre tableau de bord.
+      </div>
     )
 
   // OIDC given_name is exposed as last_name by the API; prefer it over the first
   // token of the full name.
-  const firstName = user?.last_name || (user?.full_name || '').split(' ')[0] || ''
+  const firstName =
+    user?.last_name || (user?.full_name || '').split(' ')[0] || ''
   const t = data.totals
 
   return (
-    <div className={css({ display: 'flex', flexDirection: 'column', gap: '1.5rem' })}>
+    <div
+      className={css({
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.5rem',
+      })}
+    >
       <div
         className={css({
           display: 'flex',
@@ -121,8 +63,15 @@ export const MyDashboardPage = () => {
         })}
       >
         <div>
-          <h2 className={css({ fontSize: '1.7rem', fontWeight: 700, color: 'greyscale.1000' })}>
-            Bonjour{firstName ? `, ${firstName}` : ''} <span aria-hidden>👋</span>
+          <h2
+            className={css({
+              fontSize: '1.7rem',
+              fontWeight: 700,
+              color: 'greyscale.1000',
+            })}
+          >
+            Bonjour{firstName ? `, ${firstName}` : ''}{' '}
+            <span aria-hidden>👋</span>
           </h2>
           <p className={css({ color: 'greyscale.600', marginTop: '0.2rem' })}>
             {t.meetings > 0
@@ -132,7 +81,9 @@ export const MyDashboardPage = () => {
         </div>
         {/* Same components as the landing page: creating or joining a meeting
             must behave identically wherever it is triggered from. */}
-        <div className={css({ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' })}>
+        <div
+          className={css({ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' })}
+        >
           <CreateMeetingMenu />
           <DialogTrigger>
             <Button variant="secondary">{tHome('joinMeeting')}</Button>
@@ -144,7 +95,11 @@ export const MyDashboardPage = () => {
       <div
         className={css({
           display: 'grid',
-          gridTemplateColumns: { base: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' },
+          gridTemplateColumns: {
+            base: '1fr',
+            sm: 'repeat(2, 1fr)',
+            lg: 'repeat(4, 1fr)',
+          },
           gap: '1rem',
         })}
       >
@@ -152,7 +107,9 @@ export const MyDashboardPage = () => {
           label="Réunions suivies"
           value={t.meetings}
           hint={
-            t.last_meeting_at ? `dernière ${formatRelative(t.last_meeting_at)}` : 'aucune pour l’instant'
+            t.last_meeting_at
+              ? `dernière ${formatRelative(t.last_meeting_at)}`
+              : 'aucune pour l’instant'
           }
           Icon={RiVideoChatLine}
           tone="blue"
@@ -191,12 +148,22 @@ export const MyDashboardPage = () => {
             marginBottom: '0.7rem',
           })}
         >
-          <h3 className={css({ fontSize: '1.05rem', fontWeight: 700, color: 'greyscale.1000' })}>
+          <h3
+            className={css({
+              fontSize: '1.05rem',
+              fontWeight: 700,
+              color: 'greyscale.1000',
+            })}
+          >
             Vos dernières sessions
           </h3>
           <Link
             to="/mon-espace/meetings"
-            className={css({ fontSize: '0.85rem', color: 'primary.800', fontWeight: 600 })}
+            className={css({
+              fontSize: '0.85rem',
+              color: 'primary.800',
+              fontWeight: 600,
+            })}
           >
             Tout l’historique
           </Link>
@@ -224,7 +191,11 @@ export const MyDashboardPage = () => {
                   )}
                 </Td>
                 <Td>{formatDateTime(m.started_at)}</Td>
-                <Td>{m.me.duration_sec === null ? '—' : formatDuration(m.me.duration_sec)}</Td>
+                <Td>
+                  {m.me.duration_sec === null
+                    ? '—'
+                    : formatDuration(m.me.duration_sec)}
+                </Td>
                 <Td>{m.participants}</Td>
                 <Td>
                   {m.is_active ? (
@@ -273,17 +244,40 @@ const UpcomingMeetings = () => {
           marginBottom: '0.7rem',
         })}
       >
-        <h3 className={css({ fontSize: '1.05rem', fontWeight: 700, color: 'greyscale.1000' })}>
+        <h3
+          className={css({
+            fontSize: '1.05rem',
+            fontWeight: 700,
+            color: 'greyscale.1000',
+          })}
+        >
           Prochaines réunions
         </h3>
-        <Link to="/mon-espace/agenda" className={css({ fontSize: '0.85rem', color: 'primary.800', fontWeight: 600 })}>
+        <Link
+          to="/mon-espace/agenda"
+          className={css({
+            fontSize: '0.85rem',
+            color: 'primary.800',
+            fontWeight: 600,
+          })}
+        >
           {next.length ? 'Tout l’agenda' : 'Planifier une réunion'}
         </Link>
       </div>
       {next.length === 0 ? (
-        <p className={css({ color: 'greyscale.600', fontSize: '0.9rem' })}>Aucune réunion planifiée.</p>
+        <p className={css({ color: 'greyscale.600', fontSize: '0.9rem' })}>
+          Aucune réunion planifiée.
+        </p>
       ) : (
-        <ul className={css({ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.5rem' })}>
+        <ul
+          className={css({
+            listStyle: 'none',
+            padding: 0,
+            margin: 0,
+            display: 'grid',
+            gap: '0.5rem',
+          })}
+        >
           {next.map((m) => (
             <li
               key={m.id}
@@ -299,7 +293,13 @@ const UpcomingMeetings = () => {
                 backgroundColor: 'white',
               })}
             >
-              <span className={css({ fontWeight: 600, minWidth: '11rem', fontVariantNumeric: 'tabular-nums' })}>
+              <span
+                className={css({
+                  fontWeight: 600,
+                  minWidth: '11rem',
+                  fontVariantNumeric: 'tabular-nums',
+                })}
+              >
                 {new Date(m.starts_at).toLocaleString('fr-FR', {
                   weekday: 'short',
                   day: 'numeric',
@@ -308,14 +308,25 @@ const UpcomingMeetings = () => {
                   minute: '2-digit',
                 })}
               </span>
-              <span className={css({ flex: '1 1 12rem', minWidth: 0, fontWeight: 700, overflowWrap: 'anywhere' })}>
+              <span
+                className={css({
+                  flex: '1 1 12rem',
+                  minWidth: 0,
+                  fontWeight: 700,
+                  overflowWrap: 'anywhere',
+                })}
+              >
                 {m.title}
               </span>
               <a
                 href={m.room.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={css({ color: 'primary.800', fontWeight: 600, fontSize: '0.875rem' })}
+                className={css({
+                  color: 'primary.800',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                })}
               >
                 Rejoindre
               </a>
