@@ -4,6 +4,7 @@ import { css } from '@/styled-system/css'
 import { RiCloseLine } from '@remixicon/react'
 import { fetchAdminMeeting } from '../api/adminApi'
 import { Badge, Table, Th, Td } from '@/components/console/ui'
+import { RoomLink } from '@/components/console/RoomLink'
 import {
   formatDateTime,
   formatDuration,
@@ -95,6 +96,7 @@ export const MeetingDetailModal = ({
             >
               {data?.title || 'Réunion'}
             </h3>
+            {data?.room?.slug && <RoomLink slug={data.room.slug} />}
             {data && (
               <div
                 className={css({

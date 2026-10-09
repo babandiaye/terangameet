@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { css } from '@/styled-system/css'
 import { RiCloseLine } from '@remixicon/react'
 import { Badge, Pagination, Table, Th, Td } from '@/components/console/ui'
+import { RoomLink } from '@/components/console/RoomLink'
 import { formatClock, formatDateTime, formatDuration } from '@/components/console/utils'
 import { fetchMyMeeting, fetchMyMeetings } from '../api/meApi'
 
@@ -181,6 +182,7 @@ const MyMeetingDetailModal = ({ id, onClose }: { id: string; onClose: () => void
             <h3 id={titleId} className={css({ fontSize: '1.2rem', fontWeight: 700 })}>
               {data?.title || 'Réunion'}
             </h3>
+            {data?.room?.slug && <RoomLink slug={data.room.slug} />}
             {data && (
               <div className={css({ color: 'greyscale.600', fontSize: '0.88rem', marginTop: '0.2rem' })}>
                 {formatDateTime(data.started_at)}
