@@ -41,6 +41,17 @@ step "Frontend : build dans un répertoire temporaire"
 step "Backend : build"
 pnpm --filter @terangameet/backend run build
 
+# Avant la publication et le redémarrage : le nouveau code peut lire des tables
+# que seule la migration crée. `migrate deploy` n'applique que les migrations
+# en attente, jamais de reset — contrairement à `migrate dev`, à ne jamais
+# lancer ici (la base de dev est celle de la prod).
+step "Base de données : migrations en attente"
+# Seule DATABASE_URL est lue : sourcer le fichier entier échouerait, des valeurs
+# non quotées (OIDC_RP_SCOPES=openid email profile) y étant lisibles par
+# systemd mais pas par le shell.
+database_url="$(sed -n 's/^DATABASE_URL=//p' "$ROOT/apps/backend/.env.production" | sed 's/^"\(.*\)"$/\1/')"
+(cd "$ROOT/apps/backend" && DATABASE_URL="$database_url" pnpm exec prisma migrate deploy)
+
 step "Publication du frontend (anciens fichiers conservés)"
 mkdir -p "$DIST"
 rsync -a --exclude index.html "$stage"/ "$DIST"/
