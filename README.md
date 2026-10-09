@@ -4,13 +4,13 @@ Visioconférence de l'Université Numérique Cheikh Hamidou Kane (UN-CHK), réé
 **Node.js + React** dans un monorepo **pnpm** unique (sans conteneurs), sur la base du
 projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
 
-- **Frontend** : le frontend React/Vite de Meet (même design), rebrandé « Teranga Meet ».
+- **Frontend** : le frontend React/Vite de Meet (même design), rebrandé « Teranga Meet », en français uniquement.
 - **Backend** : API Express + TypeScript + Prisma (PostgreSQL), réécriture du backend
   Django d'origine — auth OIDC (Keycloak), salles, tokens LiveKit, lobby,
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.1.3** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.1.4** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -186,6 +186,8 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.1.4** — interface en français uniquement (catalogues en, de, nl et
+  sélecteur de langue retirés).
 - **2.1.3** — maintenabilité : badges de la console enfin colorés ; code
   dédoublonné et gros fichiers découpés (serveur et interface) ; plus aucune
   couleur en dur hors des jetons de la charte ; messages d'erreur du serveur
