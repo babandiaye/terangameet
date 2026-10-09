@@ -73,9 +73,15 @@ export async function purgeRecordings(period?: string): Promise<number> {
 
   let deleted = 0
   for (const r of recordings) {
-    await deleteObject(recordingObjectKey(r), env.recording.bucket).catch((e) =>
-      logger.warn(`[purge] object delete failed for ${r.id}: ${(e as Error).message}`)
-    )
+    // File first, row second: if the file cannot be deleted, the row stays,
+    // and tomorrow's run retries. Dropping the row anyway left files nobody
+    // could find again in the bucket. (Deleting a file already gone succeeds.)
+    try {
+      await deleteObject(recordingObjectKey(r), env.recording.bucket)
+    } catch (e) {
+      logger.warn(`[purge] file of ${r.id} not deleted, kept for the next run: ${(e as Error).message}`)
+      continue
+    }
     await prisma.recording.delete({ where: { id: r.id } })
     deleted++
   }

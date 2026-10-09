@@ -2,6 +2,7 @@ import { Router, type Request } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { redis } from "../lib/redis";
+import { splitWaiting, type LobbyEntry } from "../lib/lobbyEntries";
 import { env } from "../config/env";
 import { generateLiveKitToken } from "../livekit/token";
 import { participantDisplayName } from "../lib/participantName";
@@ -19,14 +20,6 @@ import {
 
 export const lobbyRouter = Router();
 
-type LobbyStatus = "waiting" | "accepted" | "denied";
-interface LobbyEntry {
-  id: string;
-  username: string;
-  color: string;
-  status: LobbyStatus;
-  createdAt: number;
-}
 
 const key = (room: string) => `${env.lobby.keyPrefix}:${room}`;
 
@@ -136,6 +129,7 @@ lobbyRouter.post("/:roomId/request-entry/", async (req, res) => {
     createdAt: Date.now(),
   };
   entry.username = displayName(req, username);
+  entry.lastSeenAt = Date.now(); // the browser is still waiting
   await setEntry(livekitRoom, entry);
 
   if (!existing) {
@@ -157,10 +151,13 @@ lobbyRouter.get("/:roomId/waiting-participants/", async (req, res) => {
     return res.status(403).json({ detail: "Insufficient privileges." });
 
   const all = await redis.hgetall(key(auth.livekitRoom));
-  const participants = Object.values(all)
-    .map((raw) => JSON.parse(raw) as LobbyEntry)
-    .filter((e) => e.status === "waiting")
-    .sort((a, b) => a.createdAt - b.createdAt)
+  const { waiting, stale } = splitWaiting(
+    Object.values(all).map((raw) => JSON.parse(raw) as LobbyEntry),
+    Date.now(),
+  );
+  // Requests whose browser stopped asking (tab closed) are dropped.
+  if (stale.length) await redis.hdel(key(auth.livekitRoom), ...stale);
+  const participants = waiting
     .map((e) => ({
       id: e.id,
       status: e.status,
