@@ -10,6 +10,32 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
+Version actuelle : **2.0.0** — en service sur https://terangameet.unchk.sn.
+
+## Fonctionnalités propres à l'UN-CHK
+
+En plus du périmètre de Meet :
+
+- **Nom de réunion** : à la création, un titre facultatif (« Commission des
+  marchés – ouverture des plis ») ; le lien reste un code aléatoire
+  (`ryf-lqxd-dtu`). Le titre s'affiche en bas à gauche de la barre de réunion
+  avec l'heure, dans le panneau Informations, dans les invitations et
+  l'historique. Le propriétaire peut le renommer en cours de réunion ; tous les
+  participants voient le changement immédiatement.
+- **Modération** : co-animateurs promus pour la durée de la séance, fin de la
+  réunion pour tout le monde, restriction micro / caméra / partage d'écran.
+- **Enregistrements** : stockés dans un bucket MinIO privé, lus sur place ou
+  téléchargés via le backend (contrôle d'accès en base), purge automatique
+  configurable (1 mois à 1 an).
+- **Invitations par email** (SMTP) depuis la fenêtre de partage.
+- **Notes privées** par participant, sauvegardées automatiquement, export `.txt`.
+- **Tableau de bord analytique** en réunion (temps de parole, présence,
+  messages, mains levées), export PDF — réservé aux animateurs.
+- **Mon espace** (`/mon-espace`) : réunions suivies, durées, enregistrements.
+- **Console d'administration** (`/admin`, comptes `isStaff`) : tableau de bord,
+  utilisateurs, historique des réunions, salles, enregistrements, état des
+  services (Postgres, Redis, LiveKit, Egress, MinIO, SMTP, webhooks), paramètres.
+
 ## Architecture
 
 ```
@@ -17,6 +43,12 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
 ├── apps/
 │   ├── frontend/   # React + Vite (design Meet), proxy /api → backend en dev
 │   └── backend/    # Express + TS + Prisma ; sert aussi le SPA en production
+├── deploy/
+│   ├── deploy.sh           # déploiement en production (voir ci-dessous)
+│   ├── errors/             # pages 502 / 504 servies par nginx
+│   ├── nginx/              # modèle du vhost
+│   └── terangameetv2-backend.service   # unité systemd
+├── docs/                 # analyse, design system, notes d'exploitation
 ├── pnpm-workspace.yaml   # nodeLinker: hoisted (compat frontend npm)
 └── package.json          # scripts dev/build/start
 ```
@@ -64,19 +96,65 @@ Ouvrir http://localhost:3000.
 
 ## Production
 
+Sur le serveur, déployer avec le script :
+
 ```bash
-pnpm build                       # build frontend (dist/) puis backend (dist/)
+deploy/deploy.sh                 # build front + back, publication, redémarrage
+deploy/deploy.sh --no-restart    # sans redémarrer le service
+```
+
+Il construit le frontend dans un répertoire temporaire puis **ajoute** les
+nouveaux fichiers à `apps/frontend/dist` sans supprimer les anciens, et remplace
+`index.html` en dernier. Un onglet ouvert avant la mise à jour retrouve donc ses
+fichiers au lieu d'afficher une page blanche ; si un fichier manque malgré tout,
+l'application se recharge d'elle-même (`vite:preloadError`, `src/main.tsx`). Les
+fichiers de plus de 7 jours absents du build courant sont supprimés. Le script
+redémarre ensuite `terangameetv2-backend` et attend qu'il réponde sur `/healthz`.
+
+Ne pas utiliser `pnpm build` sur le serveur de production : il vide `dist/`
+pendant que le site le sert.
+
+Pendant le redémarrage (502) ou si le backend est trop lent (504), nginx affiche
+les pages de `deploy/errors/`, aux couleurs de l'application ; la page 502 se
+recharge seule dès que le service répond. Les erreurs renvoyées par l'API
+elle-même ne sont pas concernées (pas de `proxy_intercept_errors`).
+
+Le backend écoute sur `127.0.0.1:$PORT` (4000 par défaut) et sert le SPA + l'API
+(`SERVE_FRONTEND=true`). nginx assure le TLS devant (modèle dans
+`deploy/nginx/`), et le webhook LiveKit doit pointer vers
+`/api/v1.0/rooms/webhooks-livekit/`.
+
+Hors serveur de production, un build simple reste possible :
+
+```bash
+pnpm build
 SERVE_FRONTEND=true NODE_ENV=production pnpm start
 ```
 
-Le backend écoute sur `$PORT` (4000 par défaut) et sert le SPA + l'API. Placer un
-reverse-proxy TLS (nginx) devant, et faire pointer le webhook LiveKit vers
-`/api/v1.0/rooms/webhooks-livekit/`.
-
 ## Contrat d'API (principaux endpoints)
 
-`/api/v1.0/` : `config/`, `authenticate/`, `logout`, `users/me`, `users/:id`,
-`rooms/` (POST), `rooms/:id` (GET/PATCH/DELETE), `rooms/:id/{request-entry,enter,
-waiting-participants,toggle-hand,rename,mute-participant,remove-participant,
-update-participant,start-recording,stop-recording,start-subtitle}/`,
-`rooms/webhooks-livekit/`, `recordings/`, `files/`. OIDC callback : `/oidc/callback/`.
+Sous `/api/v1.0/` :
+
+- **Config et auth** : `config/`, `authenticate/`, `logout`, callback OIDC
+  `/oidc/callback/`.
+- **Utilisateurs** : `users/me`, `users/:id`.
+- **Salles** : `rooms/` (POST — `name` = titre, `slug` = lien), `rooms/:id`
+  (GET/PATCH/DELETE), `rooms/:id/{request-entry,enter,waiting-participants}/`.
+- **Modération** : `rooms/:id/{toggle-hand,rename,mute-participant,
+  remove-participant,update-participant,promote-participant,end}/`.
+- **Enregistrement** : `rooms/:id/{start-recording,stop-recording,start-subtitle}/`,
+  `recordings/`, `recordings/:id`, `recordings/:id/media/`.
+- **Notes et invitations** : `rooms/:id/notes/` (GET/PUT), `rooms/:id/invite/`.
+- **Mon espace** : `me/{dashboard,meetings,meetings/:id,recordings}/`.
+- **Administration** (`isStaff`) : `admin/{dashboard,stats,users,users/:id,
+  meetings,meetings/:id,recordings,rooms,status,purge,purge/run}/`.
+- **Webhooks** : `rooms/webhooks-livekit/`.
+
+## Versions
+
+- **2.0.0** — titre de réunion distinct du lien (création, renommage en direct,
+  affichage façon Google Meet) ; rechargement automatique après un déploiement ;
+  script `deploy/deploy.sh` ; pages d'erreur 502 / 504 personnalisées.
+- **2.0** — mise en service : réécriture Node/React, modération (co-animateur,
+  fin de réunion), enregistrements lus sur place, console d'administration,
+  Mon espace, notes, analytique, invitations par email.
