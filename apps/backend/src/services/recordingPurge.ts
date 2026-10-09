@@ -4,6 +4,7 @@ import { redis } from '../lib/redis'
 import { deleteObject } from '../lib/s3'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
+import { recordingObjectKey } from '../lib/recordingKey'
 
 /** Allowed retention periods → number of months. */
 export const PURGE_PERIODS: Record<string, number> = {
@@ -50,12 +51,6 @@ const eligibleWhere = (cutoff: Date): Prisma.RecordingWhereInput => ({
   status: { notIn: ['INITIATED', 'ACTIVE'] as RecordingStatus[] },
 })
 
-/** Object key inside the recordings bucket (mirrors recording.ts). */
-function recordingKey(r: { id: string; mode: string }): string {
-  const ext = r.mode === 'TRANSCRIPT' ? 'ogg' : 'mp4'
-  return `${env.recording.outputFolder}/${r.id}.${ext}`
-}
-
 /** How many recordings would be purged at the current/given period. */
 export async function countEligible(period?: string): Promise<number> {
   const p = period ?? (await getPurgePeriod())
@@ -78,7 +73,7 @@ export async function purgeRecordings(period?: string): Promise<number> {
 
   let deleted = 0
   for (const r of recordings) {
-    await deleteObject(recordingKey(r), env.recording.bucket).catch((e) =>
+    await deleteObject(recordingObjectKey(r), env.recording.bucket).catch((e) =>
       logger.warn(`[purge] object delete failed for ${r.id}: ${(e as Error).message}`)
     )
     await prisma.recording.delete({ where: { id: r.id } })

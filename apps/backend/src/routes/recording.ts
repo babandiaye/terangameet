@@ -13,6 +13,7 @@ import { egressClient, roomService } from "../livekit/client";
 import { notifyRoom } from "../livekit/notify";
 import { s3Configured, getObjectStream, deleteObject } from "../lib/s3";
 import { recordingStatusToApi } from "../lib/recordingStatus";
+import { recordingObjectKey } from "../lib/recordingKey";
 import { paging, paginated } from "../lib/pagination";
 import { requireAuth } from "../auth/middleware";
 import {
@@ -228,7 +229,7 @@ function serializeRecording(r: import("@prisma/client").Recording) {
     created_at: r.createdAt.toISOString(),
     status: recordingStatusToApi(r.status),
     mode: r.mode.toLowerCase(),
-    key: `${env.recording.outputFolder}/${r.id}.${r.mode === "TRANSCRIPT" ? "ogg" : "mp4"}`,
+    key: recordingObjectKey(r),
     expired_at: expiredAt?.toISOString() ?? null,
     is_expired: expiredAt ? expiredAt.getTime() < Date.now() : false,
   };
@@ -259,11 +260,6 @@ recordingsRouter.get("/:id", async (req, res) => {
   res.json(serializeRecording(r));
 });
 
-/** Object key inside the dedicated recordings bucket. */
-function recordingKey(r: import("@prisma/client").Recording): string {
-  const ext = r.mode === "TRANSCRIPT" ? "ogg" : "mp4";
-  return `${env.recording.outputFolder}/${r.id}.${ext}`;
-}
 
 /**
  * GET /:id/media/ — stream the recording file to an authorized user (its owner,
@@ -287,7 +283,7 @@ recordingsRouter.get("/:id/media/", async (req, res) => {
 
   try {
     const obj = await getObjectStream(
-      recordingKey(r),
+      recordingObjectKey(r),
       env.recording.bucket,
       range,
     );
@@ -345,7 +341,7 @@ recordingsRouter.delete("/:id", async (req, res) => {
       .json({ detail: "Cannot delete a recording that is not finished." });
   }
   // Best-effort removal of the stored file before dropping the DB row.
-  await deleteObject(recordingKey(r), env.recording.bucket).catch((err) =>
+  await deleteObject(recordingObjectKey(r), env.recording.bucket).catch((err) =>
     logger.warn("[recording] object delete failed", err),
   );
   await prisma.recording.delete({ where: { id: r.id } });
