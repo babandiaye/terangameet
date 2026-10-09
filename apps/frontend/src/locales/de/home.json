@@ -58,5 +58,12 @@
     },
     "carouselLabel": "Einführungs-Diashow",
     "slidePosition": "Folie {{current}} von {{total}}"
+  },
+  "createMeetingDialog": {
+    "heading": "Neue Besprechung",
+    "nameLabel": "Titel der Besprechung (optional)",
+    "nameDescription": "z. B. Vergabeausschuss – Angebotsöffnung. Der Link wird weiterhin automatisch erstellt.",
+    "submitInstant": "Besprechung starten",
+    "submitLater": "Link erstellen"
   }
 }

@@ -19,6 +19,7 @@ import { ReactionsToggle } from '@/features/reactions/components/ReactionsToggle
 import { ControlBarRegion } from '@/features/layout/components/ControlBarRegion'
 import { DashboardToggle } from '@/features/analytics/components/DashboardToggle'
 import { NotesToggle } from '@/features/notes/components/NotesToggle'
+import { MeetingClock } from '../../components/controls/MeetingClock'
 
 export function DesktopControlBar({
   onDeviceError,
@@ -63,8 +64,11 @@ export function DesktopControlBar({
           alignItems: 'center',
           gap: '0.5rem',
           marginLeft: '0.5rem',
+          minWidth: 0,
         })}
-      />
+      >
+        <MeetingClock />
+      </div>
       <ControlBarRegion>
         <AudioDevicesControl
           onDeviceError={(error) =>

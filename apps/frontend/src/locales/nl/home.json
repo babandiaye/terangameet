@@ -58,5 +58,12 @@
     },
     "carouselLabel": "Introductie-diavoorstelling",
     "slidePosition": "Dia {{current}} van {{total}}"
+  },
+  "createMeetingDialog": {
+    "heading": "Nieuwe vergadering",
+    "nameLabel": "Titel van de vergadering (optioneel)",
+    "nameDescription": "Bijv. Aanbestedingscommissie – opening van de offertes. De link wordt nog steeds automatisch aangemaakt.",
+    "submitInstant": "Vergadering starten",
+    "submitLater": "Link aanmaken"
   }
 }

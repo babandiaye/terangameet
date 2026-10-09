@@ -5,6 +5,10 @@ import { navigateTo } from '@/navigation/navigateTo'
 import { generateRoomId, useCreateRoom } from '@/features/rooms'
 import { RiAddLine, RiLink } from '@remixicon/react'
 import { LaterMeetingDialog } from '@/features/home/components/LaterMeetingDialog'
+import {
+  CreateMeetingDialog,
+  type CreateMeetingMode,
+} from '@/features/home/components/CreateMeetingDialog'
 import { useState } from 'react'
 
 import { menuRecipe } from '@/primitives/menuRecipe'
@@ -19,6 +23,23 @@ export const CreateMeetingMenu = () => {
   const { t } = useTranslation('home')
   const { mutateAsync: createRoom } = useCreateRoom()
   const [laterRoom, setLaterRoom] = useState<null | ApiRoom>(null)
+  // Both options first ask for an optional title, as Google Meet does when a
+  // meeting is planned; the link itself is still a random code.
+  const [pendingMode, setPendingMode] = useState<null | CreateMeetingMode>(null)
+
+  const create = (mode: CreateMeetingMode, name: string) => {
+    const slug = generateRoomId()
+    const created = createRoom({ slug, name, username })
+    if (mode === 'later') {
+      created.then(setLaterRoom)
+      return
+    }
+    created.then((data) =>
+      navigateTo('room', data.slug, {
+        state: { create: true, initialRoomData: data },
+      })
+    )
+  }
 
   return (
     <>
@@ -29,14 +50,7 @@ export const CreateMeetingMenu = () => {
         <RACMenu>
           <MenuItem
             className={menuRecipe({ icon: true, variant: 'light' }).item}
-            onAction={() => {
-              const slug = generateRoomId()
-              createRoom({ slug, username }).then((data) =>
-                navigateTo('room', data.slug, {
-                  state: { create: true, initialRoomData: data },
-                })
-              )
-            }}
+            onAction={() => setPendingMode('instant')}
             data-attr="create-option-instant"
           >
             <RiAddLine size={18} />
@@ -44,10 +58,7 @@ export const CreateMeetingMenu = () => {
           </MenuItem>
           <MenuItem
             className={menuRecipe({ icon: true, variant: 'light' }).item}
-            onAction={() => {
-              const slug = generateRoomId()
-              createRoom({ slug, username }).then(setLaterRoom)
-            }}
+            onAction={() => setPendingMode('later')}
             data-attr="create-option-later"
           >
             <RiLink size={18} />
@@ -55,6 +66,11 @@ export const CreateMeetingMenu = () => {
           </MenuItem>
         </RACMenu>
       </Menu>
+      <CreateMeetingDialog
+        mode={pendingMode}
+        onClose={() => setPendingMode(null)}
+        onCreate={create}
+      />
       <LaterMeetingDialog
         room={laterRoom}
         onOpenChange={() => setLaterRoom(null)}

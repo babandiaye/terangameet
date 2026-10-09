@@ -411,6 +411,13 @@
         "call": "Ruf an:",
         "pinCode": "Code:"
       }
+    },
+    "meetingTitle": {
+      "label": "Titel der Besprechung",
+      "rename": "Besprechung umbenennen",
+      "save": "Speichern",
+      "error": "Der Titel konnte nicht gespeichert werden. Bitte erneut versuchen.",
+      "untitled": "Besprechung ohne Titel"
     }
   },
   "transcript": {

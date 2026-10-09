@@ -5,5 +5,7 @@ export interface NotificationPayload {
   data?: {
     emoji?: string
     removedSources?: string[]
+    /** New meeting title, with RoomRenamed. */
+    name?: string
   }
 }

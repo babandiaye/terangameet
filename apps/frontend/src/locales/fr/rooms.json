@@ -411,6 +411,13 @@
         "call": "Appelez le :",
         "pinCode": "Code :"
       }
+    },
+    "meetingTitle": {
+      "label": "Titre de la réunion",
+      "rename": "Renommer la réunion",
+      "save": "Enregistrer",
+      "error": "Le titre n'a pas pu être enregistré. Réessayez.",
+      "untitled": "Réunion sans titre"
     }
   },
   "transcript": {

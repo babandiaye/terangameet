@@ -9,6 +9,7 @@ import { ApiAccessLevel, ApiRoom } from '@/features/rooms/api/ApiRoom'
 import { useTelephony } from '@/features/rooms/livekit/hooks/useTelephony'
 import { formatPinCode } from '@/features/rooms/utils/telephony'
 import { useCopyRoomToClipboard } from '@/features/rooms/livekit/hooks/useCopyRoomToClipboard'
+import { meetingTitle } from '@/features/rooms/utils/meetingTitle'
 
 // fixme - duplication with the InviteDialog
 export const LaterMeetingDialog = ({
@@ -18,6 +19,7 @@ export const LaterMeetingDialog = ({
   const { t } = useTranslation('home', { keyPrefix: 'laterMeetingDialog' })
 
   const roomUrl = room && getRouteUrl('room', room?.slug)
+  const title = meetingTitle(room)
   const telephony = useTelephony()
 
   const [isHovered, setIsHovered] = useState(false)
@@ -35,6 +37,11 @@ export const LaterMeetingDialog = ({
 
   return (
     <Dialog isOpen={!!room} {...dialogProps} title={t('heading')}>
+      {!!title && (
+        <Text as="p" variant="h3" wrap="pretty">
+          {title}
+        </Text>
+      )}
       <P>{t('description')}</P>
       {!!roomUrl && (
         <>

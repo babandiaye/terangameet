@@ -411,6 +411,13 @@
         "call": "Call:",
         "pinCode": "Code:"
       }
+    },
+    "meetingTitle": {
+      "label": "Meeting title",
+      "rename": "Rename meeting",
+      "save": "Save",
+      "error": "The title could not be saved. Please try again.",
+      "untitled": "Untitled meeting"
     }
   },
   "transcript": {

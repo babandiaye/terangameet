@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { formatPinCode } from '@/features/rooms/utils/telephony'
 import type { ApiRoom } from '@/features/rooms/api/ApiRoom'
 import { getRouteUrl } from '@/navigation/getRouteUrl'
+import { meetingTitle } from '@/features/rooms/utils/meetingTitle'
 
 const COPY_SUCCESS_TIMEOUT = 3000
 
@@ -42,9 +43,15 @@ export const useCopyRoomToClipboard = (room: ApiRoom | undefined) => {
 
   const content = useMemo(() => {
     if (!roomUrl || !room) return ''
-    if (!hasTelephonyInfo) return roomUrl
+    // Like Google Meet, a titled meeting is introduced by its title, so the
+    // pasted invitation says what it is for and not only where it is.
+    const title = meetingTitle(room)
+    if (!hasTelephonyInfo) {
+      return title ? [title, t('url', { roomUrl })].join('\n') : roomUrl
+    }
 
     return [
+      ...(title ? [title] : []),
       t('url', { roomUrl }),
       t('numberAndPin', {
         phoneNumber: telephony?.internationalPhoneNumber,

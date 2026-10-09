@@ -9,6 +9,7 @@ import { useRoomData } from '../hooks/useRoomData'
 import { formatPinCode } from '../../utils/telephony'
 import { useTelephony } from '../hooks/useTelephony'
 import { useCopyRoomToClipboard } from '../hooks/useCopyRoomToClipboard'
+import { MeetingTitle } from './MeetingTitle'
 
 export const Info = () => {
   const { t } = useTranslation('rooms', { keyPrefix: 'info' })
@@ -34,6 +35,7 @@ export const Info = () => {
       alignItems="start"
     >
       <VStack alignItems="start">
+        <MeetingTitle />
         <Text
           as="h3"
           className={css({

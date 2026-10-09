@@ -95,5 +95,12 @@
         "body": "Audio and video quality that adapts to your connection, with ambient noise reduction."
       }
     }
+  },
+  "createMeetingDialog": {
+    "heading": "New meeting",
+    "nameLabel": "Meeting title (optional)",
+    "nameDescription": "E.g. Procurement committee – bid opening. The meeting link is still generated automatically.",
+    "submitInstant": "Start meeting",
+    "submitLater": "Create link"
   }
 }

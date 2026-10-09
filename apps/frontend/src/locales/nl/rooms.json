@@ -411,6 +411,13 @@
         "call": "Bel:",
         "pinCode": "Code:"
       }
+    },
+    "meetingTitle": {
+      "label": "Titel van de vergadering",
+      "rename": "Vergadering hernoemen",
+      "save": "Opslaan",
+      "error": "De titel kon niet worden opgeslagen. Probeer het opnieuw.",
+      "untitled": "Vergadering zonder titel"
     }
   },
   "transcript": {

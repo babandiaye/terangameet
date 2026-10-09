@@ -8,6 +8,7 @@ import { env } from "../config/env";
 import { logger } from "../lib/logger";
 import { requireAuth } from "../auth/middleware";
 import { generateLiveKitToken } from "../livekit/token";
+import { notifyRoom } from "../livekit/notify";
 import { participantDisplayName } from "../lib/participantName";
 import { slugify, isUuid } from "../utils/slug";
 import {
@@ -35,6 +36,11 @@ function displayName(req: Request, username?: string): string {
 
 const CALLBACK_PREFIX = "room_creation_callback:";
 
+/** Longest meeting title accepted, on creation as on rename. */
+const ROOM_NAME_MAX = 120;
+/** Lowercase words joined by single dashes: the shape of every room link. */
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
 /** POST /api/v1.0/rooms/creation-callback/ — retrieve a cached room creation result. */
 roomsRouter.post("/creation-callback/", async (req, res) => {
   const callbackId = String(req.body?.callback_id ?? "");
@@ -48,7 +54,11 @@ roomsRouter.post("/creation-callback/", async (req, res) => {
 /** POST /api/v1.0/rooms/?username= — create a persistent room (auth required). */
 roomsRouter.post("/", requireAuth, async (req, res) => {
   const schema = z.object({
-    name: z.string().min(1).max(500),
+    // Human-readable title ("Commission des marchés – ouverture des plis").
+    name: z.string().trim().min(1).max(ROOM_NAME_MAX),
+    // The link, chosen by the client (e.g. "ryf-lqxd-dtu") so the title stays
+    // free text. Omitted by older callers, which still derive it from the name.
+    slug: z.string().max(100).regex(SLUG_RE).optional(),
     callback_id: z.string().optional(),
     access_level: z.enum(["public", "trusted", "restricted"]).optional(),
     configuration: z.record(z.any()).optional(),
@@ -62,7 +72,8 @@ roomsRouter.post("/", requireAuth, async (req, res) => {
   const { name, callback_id, access_level, configuration } = parsed.data;
   const username = req.query.username as string | undefined;
 
-  const slug = slugify(name) || randomUUID().slice(0, 8);
+  const slug =
+    parsed.data.slug || slugify(name) || randomUUID().slice(0, 8);
 
   // Reuse an existing room with the same slug owned by anyone, else create.
   // Two concurrent creates can both see "no room"; the unique slug constraint
@@ -193,7 +204,7 @@ roomsRouter.patch("/:roomId", requireAuth, async (req, res) => {
     return res.status(403).json({ detail: "Insufficient privileges." });
 
   const schema = z.object({
-    name: z.string().min(1).max(500).optional(),
+    name: z.string().trim().min(1).max(ROOM_NAME_MAX).optional(),
     access_level: z.enum(["public", "trusted", "restricted"]).optional(),
     configuration: z.record(z.any()).optional(),
   });
@@ -213,6 +224,19 @@ roomsRouter.patch("/:roomId", requireAuth, async (req, res) => {
         : {}),
     },
   });
+  // A meeting renamed while it runs keeps that name in the history: the
+  // session's title is a snapshot taken at room_started, so refresh it.
+  if (parsed.data.name) {
+    await prisma.meetingSession.updateMany({
+      where: { roomId: room.id, endedAt: null },
+      data: { title: parsed.data.name },
+    });
+    // Everyone in the call shows the title; tell them it changed.
+    await notifyRoom(room.id, {
+      type: "roomRenamed",
+      data: { name: updated.name },
+    });
+  }
   res.json(serializeRoom(updated, { isAdministrable: true }));
 });
 

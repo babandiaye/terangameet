@@ -95,5 +95,12 @@
         "body": "Qualité audio et vidéo qui s'adapte à votre connexion, avec réduction du bruit ambiant."
       }
     }
+  },
+  "createMeetingDialog": {
+    "heading": "Nouvelle réunion",
+    "nameLabel": "Titre de la réunion (facultatif)",
+    "nameDescription": "Ex. : Commission des marchés – ouverture des plis. Le lien de la réunion reste généré automatiquement.",
+    "submitInstant": "Démarrer la réunion",
+    "submitLater": "Créer le lien"
   }
 }
