@@ -10,12 +10,18 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.0.0** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.0.1** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
 En plus du périmètre de Meet :
 
+- **Salles de réunion** (Mon espace) : les salles qu'on organise, avec titre,
+  type d'accès et **participants prévus** ajoutés à la Google Agenda (on tape
+  un nom, la plateforme suggère ses membres, un clic ajoute ; une adresse
+  d'une personne pas encore inscrite est acceptée). Co-organisateurs permanents,
+  invitation groupée par email. Les administrateurs éditent toutes les salles
+  et sont seuls à pouvoir en supprimer.
 - **Nom de réunion** : à la création, un titre facultatif (« Commission des
   marchés – ouverture des plis ») ; le lien reste un code aléatoire
   (`ryf-lqxd-dtu`). Le titre s'affiche en bas à gauche de la barre de réunion
@@ -131,6 +137,18 @@ pnpm build
 SERVE_FRONTEND=true NODE_ENV=production pnpm start
 ```
 
+## Accès à une salle
+
+| Type | Entre directement | Passe par la salle d'attente |
+|---|---|---|
+| Ouverte | tout le monde | — |
+| Personnes de confiance | les personnes connectées | les invités sans compte |
+| Restreinte | propriétaire, co-organisateurs, participants prévus | tous les autres |
+
+Règle unique, testée : `apps/backend/src/lib/roomAccess.ts`. Les participants
+prévus sont reconnus par l'email de leur compte SenID. Un code de salle
+inexistant est refusé (`ALLOW_UNREGISTERED_ROOMS=false`).
+
 ## Contrat d'API (principaux endpoints)
 
 Sous `/api/v1.0/` :
@@ -145,13 +163,21 @@ Sous `/api/v1.0/` :
 - **Enregistrement** : `rooms/:id/{start-recording,stop-recording,start-subtitle}/`,
   `recordings/`, `recordings/:id`, `recordings/:id/media/`.
 - **Notes et invitations** : `rooms/:id/notes/` (GET/PUT), `rooms/:id/invite/`.
-- **Mon espace** : `me/{dashboard,meetings,meetings/:id,recordings}/`.
+- **Mon espace** : `me/{dashboard,meetings,meetings/:id,recordings}/` ;
+  salles organisées : `me/rooms/` (GET/POST), `me/rooms/:id/`,
+  `me/rooms/:id/{people,invitees,invitees/:inviteeId,invite-all}/`.
 - **Administration** (`isStaff`) : `admin/{dashboard,stats,users,users/:id,
   meetings,meetings/:id,recordings,rooms,status,purge,purge/run}/`.
 - **Webhooks** : `rooms/webhooks-livekit/`.
 
 ## Versions
 
+- **2.0.1** — onglet « Salles de réunion » de Mon espace (participants prévus
+  avec suggestions, co-organisateurs, invitation groupée) ; édition de toutes
+  les salles et suppression réservées aux administrateurs ; règles d'accès
+  unifiées (« confiance » filtre enfin les invités, codes inexistants
+  refusés) ; lien de la salle dans le détail d'une séance ; migrations
+  appliquées par `deploy/deploy.sh`.
 - **2.0.0** — titre de réunion distinct du lien (création, renommage en direct,
   affichage façon Google Meet) ; rechargement automatique après un déploiement ;
   script `deploy/deploy.sh` ; pages d'erreur 502 / 504 personnalisées.
