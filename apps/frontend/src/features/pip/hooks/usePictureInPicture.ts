@@ -47,7 +47,7 @@ export const usePictureInPicture = () => {
 
   const initializeTitleAndLanguage = useCallback(
     (pipWindow: Window, title: string) => {
-      const parentLang = document?.documentElement.lang || 'en'
+      const parentLang = document?.documentElement.lang || 'fr'
       pipWindow.document.documentElement.setAttribute('lang', parentLang)
       pipWindow.document.title = title
     },

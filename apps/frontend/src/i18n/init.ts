@@ -1,34 +1,33 @@
 import i18n from 'i18next'
 import resourcesToBackend from 'i18next-resources-to-backend'
 import { initReactI18next } from 'react-i18next'
-import LanguageDetector from 'i18next-browser-languagedetector'
+
+/**
+ * TerangaMeet is in French only. The English, German and Dutch catalogues of
+ * Meet were dropped rather than kept half-translated: the consoles, the agenda
+ * and the emails were French-only anyway. A language a user had picked before
+ * (stored by the browser) is ignored.
+ */
 const i18nDefaultNamespace = 'global'
-const fallbackLng = 'fr'
+const language = 'fr'
 
 i18n.setDefaultNamespace(i18nDefaultNamespace)
 i18n
   .use(
-    resourcesToBackend((language: string, namespace: string) => {
-      return import(`../locales/${language}/${namespace}.json`)
+    resourcesToBackend((lng: string, namespace: string) => {
+      return import(`../locales/${lng}/${namespace}.json`)
     })
   )
   .use(initReactI18next)
-  .use(LanguageDetector)
   .init({
-    supportedLngs: ['en', 'fr', 'nl', 'de'],
-    fallbackLng,
+    lng: language,
+    supportedLngs: [language],
+    fallbackLng: language,
     ns: i18nDefaultNamespace,
-    detection: {
-      order: ['localStorage', 'navigator'],
-    },
     interpolation: {
       escapeValue: false,
     },
   })
   .then(() => {
-    document.documentElement.setAttribute('lang', i18n.language || fallbackLng)
+    document.documentElement.setAttribute('lang', language)
   })
-
-i18n.on('languageChanged', (lang) => {
-  document.documentElement.setAttribute('lang', lang)
-})
