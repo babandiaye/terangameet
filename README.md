@@ -10,12 +10,16 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.0.1** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.0.2** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
 En plus du périmètre de Meet :
 
+- **Agenda** (Mon espace, activé par un administrateur) : planifier une
+  réunion à une date — titre, horaires, salle, invités — ; chaque invité reçoit
+  une invitation d'agenda (.ics) que Gmail ajoute à son Google Agenda avec le
+  lien. Modification et annulation suivent dans les agendas.
 - **Salles de réunion** (Mon espace) : les salles qu'on organise, avec titre,
   type d'accès et **participants prévus** ajoutés à la Google Agenda (on tape
   un nom, la plateforme suggère ses membres, un clic ajoute ; une adresse
@@ -163,6 +167,9 @@ Sous `/api/v1.0/` :
 - **Enregistrement** : `rooms/:id/{start-recording,stop-recording,start-subtitle}/`,
   `recordings/`, `recordings/:id`, `recordings/:id/media/`.
 - **Notes et invitations** : `rooms/:id/notes/` (GET/PUT), `rooms/:id/invite/`.
+- **Agenda** : `me/schedule/` (GET/POST), `me/schedule/:id/`
+  (GET/PATCH/DELETE), `me/schedule/people/` ; réglage
+  `admin/settings/calendar/` (GET/PUT).
 - **Mon espace** : `me/{dashboard,meetings,meetings/:id,recordings}/` ;
   salles organisées : `me/rooms/` (GET/POST), `me/rooms/:id/`,
   `me/rooms/:id/{people,invitees,invitees/:inviteeId,invite-all}/`.
@@ -172,6 +179,9 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.0.2** — agenda : réunions planifiées et invitations iCalendar (Gmail /
+  Google Agenda, Outlook), activable par un administrateur ; prochaines
+  réunions sur le tableau de bord de Mon espace.
 - **2.0.1** — onglet « Salles de réunion » de Mon espace (participants prévus
   avec suggestions, co-organisateurs, invitation groupée) ; édition de toutes
   les salles et suppression réservées aux administrateurs ; règles d'accès
