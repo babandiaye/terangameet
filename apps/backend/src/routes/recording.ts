@@ -59,7 +59,7 @@ async function authzAdmin(req: import("express").Request, roomId: string) {
 /** POST /:roomId/start-recording/ */
 recordingRoomRouter.post("/:roomId/start-recording/", async (req, res) => {
   if (!env.recording.enabled || !s3Configured()) {
-    return res.status(403).json({ detail: "Recording is disabled." });
+    return res.status(403).json({ detail: "L’enregistrement n’est pas activé." });
   }
   const schema = z.object({
     mode: z
@@ -69,17 +69,17 @@ recordingRoomRouter.post("/:roomId/start-recording/", async (req, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
-    return res.status(400).json({ detail: "Invalid payload." });
+    return res.status(400).json({ detail: "Requête invalide." });
 
   const { room, livekitRoom } = await resolveRoom(req.params.roomId);
   if (!room)
     return res
       .status(400)
-      .json({ detail: "Recording requires a registered room." });
+      .json({ detail: "L’enregistrement nécessite une salle enregistrée." });
 
   const auth = await authzAdmin(req, req.params.roomId);
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   // One active recording per room. The findFirst handles the common case; the
   // partial unique index (recordings_one_active_per_room) closes the race when
@@ -90,7 +90,7 @@ recordingRoomRouter.post("/:roomId/start-recording/", async (req, res) => {
   if (active)
     return res
       .status(409)
-      .json({ detail: "A recording is already in progress." });
+      .json({ detail: "Un enregistrement est déjà en cours." });
 
   const mode =
     parsed.data.mode === "transcript" ? "TRANSCRIPT" : "SCREEN_RECORDING";
@@ -117,7 +117,7 @@ recordingRoomRouter.post("/:roomId/start-recording/", async (req, res) => {
     ) {
       return res
         .status(409)
-        .json({ detail: "A recording is already in progress." });
+        .json({ detail: "Un enregistrement est déjà en cours." });
     }
     throw err;
   }
@@ -155,7 +155,7 @@ recordingRoomRouter.post("/:roomId/start-recording/", async (req, res) => {
       data: { status: "FAILED_TO_START" },
     });
     logger.error("[recording] start failed", err);
-    return res.status(502).json({ detail: "Unable to start recording." });
+    return res.status(502).json({ detail: "L’enregistrement n’a pas pu démarrer." });
   }
 
   res.status(201).json(serializeRoom(room, { isAdministrable: true }));
@@ -164,15 +164,15 @@ recordingRoomRouter.post("/:roomId/start-recording/", async (req, res) => {
 /** POST /:roomId/stop-recording/ */
 recordingRoomRouter.post("/:roomId/stop-recording/", async (req, res) => {
   const { room, livekitRoom } = await resolveRoom(req.params.roomId);
-  if (!room) return res.status(404).json({ detail: "Room not found." });
+  if (!room) return res.status(404).json({ detail: "Salle introuvable." });
   const auth = await authzAdmin(req, req.params.roomId);
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   const active = await prisma.recording.findFirst({
     where: { roomId: room.id, status: { in: ["INITIATED", "ACTIVE"] } },
   });
-  if (!active) return res.status(404).json({ detail: "No active recording." });
+  if (!active) return res.status(404).json({ detail: "Aucun enregistrement en cours." });
 
   try {
     if (active.workerId) await egressClient.stopEgress(active.workerId);
@@ -197,7 +197,7 @@ recordingRoomRouter.post("/:roomId/stop-recording/", async (req, res) => {
     await notifyRoom(livekitRoom, { type: "screenRecordingStopped" });
   } catch (err) {
     logger.error("[recording] stop failed", err);
-    return res.status(502).json({ detail: "Unable to stop recording." });
+    return res.status(502).json({ detail: "L’enregistrement n’a pas pu être arrêté." });
   }
   res.json(serializeRoom(room, { isAdministrable: true }));
 });
@@ -205,11 +205,11 @@ recordingRoomRouter.post("/:roomId/stop-recording/", async (req, res) => {
 /** POST /:roomId/start-subtitle/ — start live transcription (agent dispatch). */
 recordingRoomRouter.post("/:roomId/start-subtitle/", async (req, res) => {
   if (!env.subtitle.enabled)
-    return res.status(403).json({ detail: "Subtitles are disabled." });
+    return res.status(403).json({ detail: "Les sous-titres ne sont pas activés." });
   const { room, livekitRoom } = await resolveRoom(req.params.roomId);
   const auth = await authzAdmin(req, req.params.roomId);
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
   // Agent dispatch is handled by the LiveKit transcription agent listening on the room.
   await notifyRoom(livekitRoom, { type: "transcriptionStarted" });
   if (room) return res.json(serializeRoom(room, { isAdministrable: true }));
@@ -257,7 +257,7 @@ recordingsRouter.get("/:id", async (req, res) => {
   const r = await prisma.recording.findFirst({
     where: { id: req.params.id, ...recordingVisibleTo(req.user!) },
   });
-  if (!r) return res.status(404).json({ detail: "Recording not found." });
+  if (!r) return res.status(404).json({ detail: "Enregistrement introuvable." });
   res.json(serializeRecording(r));
 });
 
@@ -272,7 +272,7 @@ recordingsRouter.get("/:id/media/", async (req, res) => {
   const r = await prisma.recording.findFirst({
     where: { id: req.params.id, ...recordingVisibleTo(req.user!) },
   });
-  if (!r) return res.status(404).json({ detail: "Recording not found." });
+  if (!r) return res.status(404).json({ detail: "Enregistrement introuvable." });
 
   const ext = r.mode === "TRANSCRIPT" ? "ogg" : "mp4";
   // Played in the browser by default; the download button asks for ?download=1.
@@ -289,7 +289,7 @@ recordingsRouter.get("/:id/media/", async (req, res) => {
       range,
     );
     if (!obj.body)
-      return res.status(404).json({ detail: "Recording file not found." });
+      return res.status(404).json({ detail: "Le fichier de l’enregistrement est introuvable." });
 
     res.setHeader(
       "Content-Type",
@@ -325,10 +325,10 @@ recordingsRouter.get("/:id/media/", async (req, res) => {
     const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata
       ?.httpStatusCode;
     if (status === 416) {
-      return res.status(416).json({ detail: "Requested range not satisfiable." });
+      return res.status(416).json({ detail: "Plage demandée hors du fichier." });
     }
     logger.error("[recording] media fetch failed", err);
-    return res.status(404).json({ detail: "Recording file not found." });
+    return res.status(404).json({ detail: "Le fichier de l’enregistrement est introuvable." });
   }
 });
 
@@ -341,7 +341,7 @@ recordingsRouter.delete("/:id", async (req, res) => {
       },
     },
   });
-  if (!r) return res.status(404).json({ detail: "Recording not found." });
+  if (!r) return res.status(404).json({ detail: "Enregistrement introuvable." });
   const final = [
     "STOPPED",
     "SAVED",
@@ -353,7 +353,7 @@ recordingsRouter.delete("/:id", async (req, res) => {
   if (!final.includes(r.status)) {
     return res
       .status(409)
-      .json({ detail: "Cannot delete a recording that is not finished." });
+      .json({ detail: "Un enregistrement en cours ne peut pas être supprimé." });
   }
   // Best-effort removal of the stored file before dropping the DB row.
   await deleteObject(recordingObjectKey(r), env.recording.bucket).catch((err) =>

@@ -26,7 +26,7 @@ notesRouter.get("/:roomId/notes/", requireAuth, async (req, res) => {
 notesRouter.put("/:roomId/notes/", requireAuth, async (req, res) => {
   const parsed = z.string().max(100000).safeParse(req.body?.content);
   if (!parsed.success)
-    return res.status(400).json({ detail: "Invalid content." });
+    return res.status(400).json({ detail: "Contenu invalide." });
   const { livekitRoom } = await resolveRoom(req.params.roomId);
   const note = await prisma.meetingNote.upsert({
     where: { userId_roomKey: { userId: req.user!.id, roomKey: livekitRoom } },

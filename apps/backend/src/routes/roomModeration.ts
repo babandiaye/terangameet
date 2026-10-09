@@ -17,7 +17,7 @@ export const roomModerationRouter = Router();
 roomModerationRouter.post("/:roomId/toggle-hand/", async (req, res) => {
   const lk = req.livekit;
   if (!lk?.identity)
-    return res.status(401).json({ detail: "LiveKit token required." });
+    return res.status(401).json({ detail: "Session de réunion requise : rechargez la page." });
   const raised = !!req.body?.raised;
   const { livekitRoom } = await authorizeModeration(req.params.roomId, {
     userId: req.user?.id,
@@ -31,7 +31,7 @@ roomModerationRouter.post("/:roomId/toggle-hand/", async (req, res) => {
     res.json({ status: "success" });
   } catch (err) {
     logger.error("[moderation] toggle-hand failed", err);
-    res.status(502).json({ detail: "Unable to update hand state." });
+    res.status(502).json({ detail: "La main levée n’a pas pu être mise à jour." });
   }
 });
 
@@ -39,7 +39,7 @@ roomModerationRouter.post("/:roomId/toggle-hand/", async (req, res) => {
 roomModerationRouter.post("/:roomId/rename/", async (req, res) => {
   const lk = req.livekit;
   if (!lk?.identity)
-    return res.status(401).json({ detail: "LiveKit token required." });
+    return res.status(401).json({ detail: "Session de réunion requise : rechargez la page." });
   // Authenticated participants carry their Keycloak name; only guests, who have
   // no account to be named by, may choose one.
   if (req.user) {
@@ -48,7 +48,7 @@ roomModerationRouter.post("/:roomId/rename/", async (req, res) => {
     });
   }
   const name = z.string().min(1).max(100).safeParse(req.body?.name);
-  if (!name.success) return res.status(400).json({ detail: "Invalid name." });
+  if (!name.success) return res.status(400).json({ detail: "Nom invalide." });
   const { livekitRoom } = await authorizeModeration(req.params.roomId, {
     // Only guests reach this point, so there is no session user to authorize by.
     userId: undefined,
@@ -62,7 +62,7 @@ roomModerationRouter.post("/:roomId/rename/", async (req, res) => {
     res.json({ status: "success" });
   } catch (err) {
     logger.error("[moderation] rename failed", err);
-    res.status(502).json({ detail: "Unable to rename." });
+    res.status(502).json({ detail: "Le nom n’a pas pu être modifié." });
   }
 });
 
@@ -74,7 +74,7 @@ roomModerationRouter.post("/:roomId/mute-participant/", async (req, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
-    return res.status(400).json({ detail: "Invalid payload." });
+    return res.status(400).json({ detail: "Requête invalide." });
 
   const auth = await authorizeModeration(req.params.roomId, {
     userId: req.user?.id,
@@ -83,7 +83,7 @@ roomModerationRouter.post("/:roomId/mute-participant/", async (req, res) => {
     livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   try {
     let trackSid = parsed.data.track_sid;
@@ -95,7 +95,7 @@ roomModerationRouter.post("/:roomId/mute-participant/", async (req, res) => {
       trackSid = p?.tracks.find((t) => t.type === 0 /* AUDIO */)?.sid;
     }
     if (!trackSid)
-      return res.json({ status: "success", detail: "No track to mute." });
+      return res.json({ status: "success", detail: "Aucun micro à couper." });
     await roomService.mutePublishedTrack(
       auth.livekitRoom,
       parsed.data.participant_identity,
@@ -105,7 +105,7 @@ roomModerationRouter.post("/:roomId/mute-participant/", async (req, res) => {
     res.json({ status: "success" });
   } catch (err) {
     logger.error("[moderation] mute failed", err);
-    res.status(502).json({ detail: "Unable to mute participant." });
+    res.status(502).json({ detail: "Le micro n’a pas pu être coupé." });
   }
 });
 
@@ -113,7 +113,7 @@ roomModerationRouter.post("/:roomId/mute-participant/", async (req, res) => {
 roomModerationRouter.post("/:roomId/remove-participant/", async (req, res) => {
   const identity = z.string().min(1).safeParse(req.body?.participant_identity);
   if (!identity.success)
-    return res.status(400).json({ detail: "Invalid participant_identity." });
+    return res.status(400).json({ detail: "Participant invalide." });
 
   const auth = await authorizeModeration(req.params.roomId, {
     userId: req.user?.id,
@@ -122,14 +122,14 @@ roomModerationRouter.post("/:roomId/remove-participant/", async (req, res) => {
     livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   try {
     await roomService.removeParticipant(auth.livekitRoom, identity.data);
     res.json({ status: "success" });
   } catch (err) {
     logger.error("[moderation] remove failed", err);
-    res.status(502).json({ detail: "Unable to remove participant." });
+    res.status(502).json({ detail: "Le participant n’a pas pu être retiré." });
   }
 });
 
@@ -144,7 +144,7 @@ roomModerationRouter.post("/:roomId/update-participant/", async (req, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
-    return res.status(400).json({ detail: "Invalid payload." });
+    return res.status(400).json({ detail: "Requête invalide." });
 
   const auth = await authorizeModeration(req.params.roomId, {
     userId: req.user?.id,
@@ -153,7 +153,7 @@ roomModerationRouter.post("/:roomId/update-participant/", async (req, res) => {
     livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   // Map snake_case permission keys to the LiveKit SDK's camelCase.
   const p = parsed.data.permission;
@@ -191,7 +191,7 @@ roomModerationRouter.post("/:roomId/update-participant/", async (req, res) => {
     res.json({ status: "success" });
   } catch (err) {
     logger.error("[moderation] update-participant failed", err);
-    res.status(502).json({ detail: "Unable to update participant." });
+    res.status(502).json({ detail: "Le participant n’a pas pu être modifié." });
   }
 });
 
@@ -210,7 +210,7 @@ roomModerationRouter.post("/:roomId/promote-participant/", async (req, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
-    return res.status(400).json({ detail: "Invalid payload." });
+    return res.status(400).json({ detail: "Requête invalide." });
 
   const auth = await authorizeModeration(req.params.roomId, {
     userId: req.user?.id,
@@ -219,7 +219,7 @@ roomModerationRouter.post("/:roomId/promote-participant/", async (req, res) => {
     livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   const { participant_identity: identity, co_host: coHost } = parsed.data;
 
@@ -241,7 +241,7 @@ roomModerationRouter.post("/:roomId/promote-participant/", async (req, res) => {
     res.json({ status: "success" });
   } catch (err) {
     logger.error("[moderation] co-host update failed", err);
-    res.status(502).json({ detail: "Unable to update participant." });
+    res.status(502).json({ detail: "Le participant n’a pas pu être modifié." });
   }
 });
 
@@ -260,13 +260,13 @@ roomModerationRouter.post("/:roomId/end/", async (req, res) => {
     livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   try {
     await roomService.deleteRoom(auth.livekitRoom);
     res.json({ status: "success" });
   } catch (err) {
     logger.error("[moderation] ending the room failed", err);
-    res.status(502).json({ detail: "Unable to end the meeting." });
+    res.status(502).json({ detail: "La réunion n’a pas pu être terminée." });
   }
 });

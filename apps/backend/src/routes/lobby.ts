@@ -47,7 +47,7 @@ lobbyRouter.post("/:roomId/request-entry/", async (req, res) => {
   // out a token for any name at all, even with ALLOW_UNREGISTERED_ROOMS=false.
   if (!room) {
     if (!env.rooms.allowUnregistered) {
-      return res.status(404).json({ detail: "Room not found." });
+      return res.status(404).json({ detail: "Salle introuvable." });
     }
     const token = await generateLiveKitToken({
       room: livekitRoom,
@@ -148,7 +148,7 @@ lobbyRouter.get("/:roomId/waiting-participants/", async (req, res) => {
     livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   const all = await redis.hgetall(key(auth.livekitRoom));
   const { waiting, stale } = splitWaiting(
@@ -175,7 +175,7 @@ lobbyRouter.post("/:roomId/enter/", async (req, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
-    return res.status(400).json({ detail: "Invalid payload." });
+    return res.status(400).json({ detail: "Requête invalide." });
 
   const auth = await authorizeModeration(req.params.roomId, {
     userId: req.user?.id,
@@ -184,10 +184,10 @@ lobbyRouter.post("/:roomId/enter/", async (req, res) => {
     livekitIdentity: req.livekit?.identity,
   });
   if (!auth.ok)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   const entry = await getEntry(auth.livekitRoom, parsed.data.participant_id);
-  if (!entry) return res.status(404).json({ detail: "Participant not found." });
+  if (!entry) return res.status(404).json({ detail: "Participant introuvable." });
 
   entry.status = parsed.data.allow_entry ? "accepted" : "denied";
   await setEntry(auth.livekitRoom, entry);

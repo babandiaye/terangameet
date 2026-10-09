@@ -18,13 +18,13 @@ const updateSchema = z.object({
 
 /** PATCH/PUT /api/v1.0/users/:id — only self may update prefs. */
 async function updateUser(req: import('express').Request, res: import('express').Response) {
-  if (!req.user) return res.status(401).json({ detail: 'Authentication required.' })
+  if (!req.user) return res.status(401).json({ detail: 'Connexion requise.' })
   if (req.params.id !== req.user.id) {
-    return res.status(403).json({ detail: 'You can only update your own profile.' })
+    return res.status(403).json({ detail: 'Vous ne pouvez modifier que votre propre profil.' })
   }
   const parsed = updateSchema.safeParse(req.body)
   if (!parsed.success) {
-    return res.status(400).json({ detail: 'Invalid payload', errors: parsed.error.flatten() })
+    return res.status(400).json({ detail: 'Requête invalide.', errors: parsed.error.flatten() })
   }
   const user = await prisma.user.update({ where: { id: req.user.id }, data: parsed.data })
   res.json(serializeUser(user))

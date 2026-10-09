@@ -52,7 +52,7 @@ authRouter.get('/authenticate/', async (req, res) => {
     res.redirect(url)
   } catch (err) {
     logger.error('[auth] authenticate failed', err)
-    res.status(500).json({ detail: 'Authentication provider unavailable.' })
+    res.status(500).json({ detail: 'Le service de connexion est indisponible.' })
   }
 })
 
@@ -123,7 +123,7 @@ authRouter.get('/callback/', async (req, res) => {
       return res.redirect(safeReturnTo(flow.returnTo, env.APP_BASE_URL))
     }
     logger.error('[auth] callback failed', err)
-    res.status(500).json({ detail: 'Authentication failed.' })
+    res.status(500).json({ detail: 'La connexion a échoué.' })
   }
 })
 

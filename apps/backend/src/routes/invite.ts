@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../auth/middleware";
 import { resolveRoom } from "../services/rooms";
 import { env } from "../config/env";
+import { roomUrl } from "../lib/roomLinks";
 import { sendMail } from "../lib/mailer";
 import { inviteLimiter } from "../middleware/rateLimit";
 import { logger } from "../lib/logger";
@@ -45,7 +46,7 @@ inviteRouter.post(
 
     const { room } = await resolveRoom(req.params.roomId);
     const slug = room?.slug ?? req.params.roomId;
-    const url = `${env.APP_BASE_URL.replace(/\/$/, "")}/${slug}`;
+    const url = roomUrl({ slug, id: slug });
     const inviter = req.user!.fullName || req.user!.email || "Un participant";
     const roomLabel = room?.name || slug;
 

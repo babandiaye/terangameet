@@ -35,3 +35,17 @@ export async function findPeople(
     LIMIT 8`)
   return rows
 }
+
+/**
+ * Account names by (lowercased) email, for the addresses that belong to a
+ * member of the platform — used to show names rather than addresses in
+ * participant and guest lists. Account emails are stored as SenID sends them,
+ * hence the comparison on lower().
+ */
+export async function accountNames(emails: string[]): Promise<Map<string, string | null>> {
+  if (!emails.length) return new Map()
+  const rows = await prisma.$queryRaw<{ email: string; full_name: string | null }[]>(Prisma.sql`
+    SELECT lower(email) AS email, "fullName" AS full_name
+    FROM users WHERE lower(email) IN (${Prisma.join(emails)})`)
+  return new Map(rows.map((r) => [r.email, r.full_name]))
+}

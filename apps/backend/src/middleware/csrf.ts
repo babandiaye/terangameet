@@ -33,7 +33,7 @@ export function csrf(req: Request, res: Response, next: NextFunction) {
 
   const header = req.get('X-CSRFToken')
   if (!header || header !== token) {
-    return res.status(403).json({ detail: 'CSRF verification failed.' })
+    return res.status(403).json({ detail: 'Requête refusée (protection CSRF) : rechargez la page.' })
   }
   next()
 }

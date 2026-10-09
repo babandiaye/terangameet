@@ -61,7 +61,7 @@ filesRouter.get('/', async (req, res) => {
 /** POST /api/v1.0/files/ — create a file and return a presigned upload URL. */
 filesRouter.post('/', async (req, res) => {
   if (!env.files.uploadEnabled || !s3Configured()) {
-    return res.status(403).json({ detail: 'File upload is disabled.' })
+    return res.status(403).json({ detail: 'L’envoi de fichiers n’est pas activé.' })
   }
   const schema = z.object({
     filename: z.string().min(1).max(255),
@@ -69,15 +69,15 @@ filesRouter.post('/', async (req, res) => {
     title: z.string().max(255).optional(),
   })
   const parsed = schema.safeParse(req.body)
-  if (!parsed.success) return res.status(400).json({ detail: 'Invalid payload.' })
+  if (!parsed.success) return res.status(400).json({ detail: 'Requête invalide.' })
 
   const e = ext(parsed.data.filename)
   if (env.files.allowedExtensions.length && !env.files.allowedExtensions.includes(e)) {
-    return res.status(400).json({ detail: `Extension .${e} not allowed.` })
+    return res.status(400).json({ detail: `Extension .${e} non autorisée.` })
   }
   const count = await prisma.file.count({ where: { creatorId: req.user!.id, deletedAt: null } })
   if (count >= env.files.maxCountByUser) {
-    return res.status(400).json({ detail: 'Upload quota reached.' })
+    return res.status(400).json({ detail: 'Quota de fichiers atteint.' })
   }
 
   const file = await prisma.file.create({
@@ -97,7 +97,7 @@ filesRouter.post('/:id/upload-ended/', async (req, res) => {
   const file = await prisma.file.findFirst({
     where: { id: req.params.id, creatorId: req.user!.id },
   })
-  if (!file) return res.status(404).json({ detail: 'File not found.' })
+  if (!file) return res.status(404).json({ detail: 'Fichier introuvable.' })
   const updated = await prisma.file.update({
     where: { id: file.id },
     data: { uploadState: 'READY' },
@@ -110,7 +110,7 @@ filesRouter.delete('/:id', async (req, res) => {
   const file = await prisma.file.findFirst({
     where: { id: req.params.id, creatorId: req.user!.id },
   })
-  if (!file) return res.status(404).json({ detail: 'File not found.' })
+  if (!file) return res.status(404).json({ detail: 'Fichier introuvable.' })
   await prisma.file.update({ where: { id: file.id }, data: { deletedAt: new Date() } })
   if (s3Configured()) {
     try {

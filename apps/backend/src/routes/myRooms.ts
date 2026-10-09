@@ -8,7 +8,8 @@ import { requireAuth } from '../auth/middleware'
 import { inviteLimiter, searchLimiter } from '../middleware/rateLimit'
 import { paging, paginated } from '../lib/pagination'
 import { parseEmailList } from '../lib/roomAccess'
-import { findPeople } from '../services/people'
+import { accountNames, findPeople } from '../services/people'
+import { roomUrl } from '../lib/roomLinks'
 import { sendMail } from '../lib/mailer'
 import { getRole } from '../services/rooms'
 import { generateRoomSlug } from '../utils/slug'
@@ -60,8 +61,6 @@ async function organisedRoom(
   return null
 }
 
-const roomUrl = (slug: string | null, id: string) =>
-  `${env.APP_BASE_URL.replace(/\/$/, '')}/${slug ?? id}`
 
 /** Invitee rows, with the account name of those who already signed in once. */
 async function serializeInvitees(roomId: string) {
@@ -69,14 +68,7 @@ async function serializeInvitees(roomId: string) {
     where: { roomId },
     orderBy: [{ isCoOrganizer: 'desc' }, { email: 'asc' }],
   })
-  const emails = invitees.map((i) => i.email)
-  // Account emails are stored as SenID sends them; compare lowercased.
-  const accounts = emails.length
-    ? await prisma.$queryRaw<{ email: string; full_name: string | null }[]>(Prisma.sql`
-        SELECT lower(email) AS email, "fullName" AS full_name
-        FROM users WHERE lower(email) IN (${Prisma.join(emails)})`)
-    : []
-  const nameByEmail = new Map(accounts.map((a) => [a.email, a.full_name]))
+  const nameByEmail = await accountNames(invitees.map((i) => i.email))
   return invitees.map((i) => ({
     id: i.id,
     email: i.email,
@@ -115,7 +107,7 @@ myRoomsRouter.get('/', async (req, res) => {
         id: r.id,
         name: r.name,
         slug: r.slug ?? r.id,
-        url: roomUrl(r.slug, r.id),
+        url: roomUrl(r),
         access_level: String(r.accessLevel).toLowerCase(),
         // No RoomAccess row means the standing comes from the co-organizer list.
         my_role: r.accesses[0]?.role === 'OWNER' ? 'owner' : 'co_organizer',
@@ -172,7 +164,7 @@ myRoomsRouter.get('/:roomId/', async (req, res) => {
     id: room.id,
     name: room.name,
     slug: room.slug ?? room.id,
-    url: roomUrl(room.slug, room.id),
+    url: roomUrl(room),
     access_level: String(room.accessLevel).toLowerCase(),
     my_role: asStaff ? 'admin' : role === 'OWNER' ? 'owner' : 'co_organizer',
     owner: owner ? { full_name: owner.user.fullName, email: owner.user.email } : null,
@@ -296,7 +288,7 @@ myRoomsRouter.post('/:roomId/invite-all/', inviteLimiter, async (req, res) => {
   ).map((i) => i.email)
   if (!recipients.length) return res.status(400).json({ detail: 'La liste des participants est vide.' })
 
-  const url = roomUrl(found.room.slug, found.room.id)
+  const url = roomUrl(found.room)
   const inviter = req.user!.fullName || req.user!.email || 'Un organisateur'
   const content = { inviter, url, roomLabel: found.room.name, customMessage: message.data || undefined }
   const mail = {

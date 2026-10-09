@@ -20,7 +20,7 @@ import { filesRouter } from "./routes/files";
 import { notesRouter } from "./routes/notes";
 import { inviteRouter } from "./routes/invite";
 import { recordingRoomRouter, recordingsRouter } from "./routes/recording";
-import { adminRouter } from "./routes/admin";
+import { adminRouter } from "./routes/admin/index";
 import { meRouter } from "./routes/me";
 import { myRoomsRouter } from "./routes/myRooms";
 import { scheduleRouter } from "./routes/schedule";
@@ -121,7 +121,7 @@ export function createApp() {
 
   // JSON 404 for unmatched API routes.
   app.use((req, res) => {
-    res.status(404).json({ detail: "Not found", path: req.path });
+    res.status(404).json({ detail: "Introuvable", path: req.path });
   });
 
   // Last: any error a route raised (sync or async) → logged JSON 500.

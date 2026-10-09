@@ -39,7 +39,7 @@ export async function attachUser(req: Request, _res: Response, next: NextFunctio
 /** Requires an authenticated user; 401 otherwise. */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
-    return res.status(401).json({ detail: 'Authentication required.' })
+    return res.status(401).json({ detail: 'Connexion requise.' })
   }
   next()
 }
@@ -47,10 +47,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 /** Requires a platform administrator (User.isStaff); 401/403 otherwise. */
 export function requireStaff(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
-    return res.status(401).json({ detail: 'Authentication required.' })
+    return res.status(401).json({ detail: 'Connexion requise.' })
   }
   if (!req.user.isStaff) {
-    return res.status(403).json({ detail: 'Administrator privileges required.' })
+    return res.status(403).json({ detail: 'Réservé aux administrateurs.' })
   }
   next()
 }

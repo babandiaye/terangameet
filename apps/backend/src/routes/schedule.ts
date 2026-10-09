@@ -1,6 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from 'express'
 import { z } from 'zod'
-import { Prisma, type MeetingAttendee, type Room, type ScheduledMeeting, type User } from '@prisma/client'
+import { Prisma, type Room } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
@@ -8,15 +8,21 @@ import { requireAuth } from '../auth/middleware'
 import { searchLimiter } from '../middleware/rateLimit'
 import { parseEmailList } from '../lib/roomAccess'
 import { coHostPlan } from '../lib/coHosts'
-import { buildIcs } from '../lib/ics'
-import { sendMail } from '../lib/mailer'
-import { scheduleHtml, scheduleSubject, scheduleText, type ScheduleMailKind } from '../lib/scheduleMail'
 import { getRole } from '../services/rooms'
 import { getSetting } from '../services/settings'
 import { findPeople } from '../services/people'
 import { generateRoomSlug } from '../utils/slug'
-import { buildGoogleEvent } from '../lib/googleEvent'
 import { googleEvents, GoogleConsentLost, isGoogleSyncEnabled, linkedAccount } from '../services/google'
+import {
+  type MailReport,
+  TIMEZONE,
+  withRelations,
+  serializeMeeting,
+  visibleMeeting,
+  sendInvitations,
+  syncRoomPeople,
+  googleEventOf,
+} from '../services/scheduledMeetings'
 
 /**
  * Scheduled meetings — the calendar side of TerangaMeet (phase 1).
@@ -40,201 +46,10 @@ scheduleRouter.use(async (_req: Request, res: Response, next: NextFunction) => {
   next()
 })
 
-/** What happened to the invitations: who sent them, and who could not be reached. */
-interface MailReport {
-  sent: number
-  failed: string[]
-  via: 'google' | 'email'
-}
-
-const MAX_ATTENDEES = 200
-const MAX_DURATION_MS = 24 * 3600 * 1000
-const TIMEZONE = 'Africa/Dakar'
-
-const roomUrl = (room: Pick<Room, 'slug' | 'id'>) =>
-  `${env.APP_BASE_URL.replace(/\/$/, '')}/${room.slug ?? room.id}`
-
-const icsUid = (id: string) => `${id}@${new URL(env.APP_BASE_URL).hostname}`
-
-type MeetingWithRelations = ScheduledMeeting & {
-  room: Room
-  organizer: Pick<User, 'id' | 'fullName' | 'email'>
-  attendees: MeetingAttendee[]
-}
-
-const withRelations = {
-  room: true,
-  organizer: { select: { id: true, fullName: true, email: true } },
-  attendees: { orderBy: { email: 'asc' } },
-} satisfies Prisma.ScheduledMeetingInclude
-
-/** Account names of the attendees who already signed in once. */
-async function namesByEmail(emails: string[]): Promise<Map<string, string | null>> {
-  if (!emails.length) return new Map()
-  const rows = await prisma.$queryRaw<{ email: string; full_name: string | null }[]>(Prisma.sql`
-    SELECT lower(email) AS email, "fullName" AS full_name
-    FROM users WHERE lower(email) IN (${Prisma.join(emails)})`)
-  return new Map(rows.map((r) => [r.email, r.full_name]))
-}
-
-async function serialize(m: MeetingWithRelations, user: User) {
-  const names = await namesByEmail(m.attendees.map((a) => a.email))
-  const myEmail = user.email?.toLowerCase()
-  return {
-    id: m.id,
-    title: m.title,
-    description: m.description,
-    starts_at: m.startsAt.toISOString(),
-    ends_at: m.endsAt.toISOString(),
-    timezone: m.timezone,
-    status: m.status.toLowerCase(),
-    room: {
-      id: m.room.id,
-      name: m.room.name,
-      slug: m.room.slug ?? m.room.id,
-      url: roomUrl(m.room),
-    },
-    organizer: { full_name: m.organizer.fullName, email: m.organizer.email },
-    is_organizer: m.organizerId === user.id,
-    /** Only the room's owner may name co-hosts. */
-    can_manage_co_hosts: m.organizerId === user.id && (await getRole(m.roomId, user.id)) === 'OWNER',
-    /** Where the invitations live: the organiser's Google Calendar or email. */
-    channel: m.googleEventId ? 'google' : 'email',
-    attendees: m.attendees.map((a) => ({
-      email: a.email,
-      full_name: names.get(a.email) ?? null,
-      response: a.response.toLowerCase(),
-      is_me: a.email === myEmail,
-      is_co_host: a.isCoHost,
-    })),
-  }
-}
-
-/** A meeting the caller organises or is invited to; null (→ 404) otherwise. */
-async function visibleMeeting(id: string, user: User): Promise<MeetingWithRelations | null> {
-  const email = user.email?.toLowerCase()
-  return prisma.scheduledMeeting
-    .findFirst({
-      where: {
-        id,
-        OR: [{ organizerId: user.id }, ...(email ? [{ attendees: { some: { email } } }] : [])],
-      },
-      include: withRelations,
-    })
-    .catch(() => null)
-}
-
-/**
- * Email the invitation (or its update / cancellation) to the given people.
- * The organiser is always included, so the event lands in their calendar too.
- * A few at a time — up to 200 guests must not open 200 SMTP sessions at once.
- */
-async function sendInvitations(
-  m: MeetingWithRelations,
-  kind: ScheduleMailKind,
-  recipients: string[]
-): Promise<{ sent: number; failed: string[] }> {
-  const organizerEmail = m.organizer.email!.toLowerCase()
-  const names = await namesByEmail(m.attendees.map((a) => a.email))
-  const organizerName = m.organizer.fullName || organizerEmail
-  const ics = buildIcs({
-    method: kind === 'cancel' ? 'CANCEL' : 'REQUEST',
-    uid: icsUid(m.id),
-    sequence: m.sequence,
-    stamp: new Date(),
-    start: m.startsAt,
-    end: m.endsAt,
-    summary: m.title,
-    description: m.description,
-    url: roomUrl(m.room),
-    organizer: { email: organizerEmail, name: m.organizer.fullName },
-    attendees: m.attendees.map((a) => ({
-      email: a.email,
-      name: names.get(a.email),
-    })),
-  })
-  const content = {
-    kind,
-    organizer: organizerName,
-    title: m.title,
-    description: m.description || undefined,
-    start: m.startsAt,
-    end: m.endsAt,
-    timezone: m.timezone,
-    url: roomUrl(m.room),
-  }
-  const mail = {
-    subject: scheduleSubject(content),
-    text: scheduleText(content),
-    html: scheduleHtml(content),
-    icalEvent: {
-      method: kind === 'cancel' ? ('CANCEL' as const) : ('REQUEST' as const),
-      content: ics,
-    },
-  }
-
-  const to = [...new Set([organizerEmail, ...recipients])]
-  const failed: string[] = []
-  for (let i = 0; i < to.length; i += 5) {
-    const batch = to.slice(i, i + 5)
-    const results = await Promise.allSettled(batch.map((address) => sendMail({ to: address, ...mail })))
-    results.forEach((r, j) => {
-      if (r.status === 'rejected') {
-        failed.push(batch[j])
-        logger.warn(`[schedule] ${kind} mail to ${batch[j]} failed: ${String(r.reason)}`)
-      }
-    })
-  }
-  return { sent: to.length - failed.length, failed }
-}
-
-/**
- * Mirror the meeting on its room: guests join the participant list (restricted
- * rooms let them in), co-hosts become co-organizers (they moderate every
- * session), and a co-host who lost the role loses it on the room too.
- */
-async function syncRoomPeople(
-  roomId: string,
-  invitedById: string,
-  change: { guests: string[]; promoted: string[]; demoted: string[] }
-) {
-  if (change.guests.length) {
-    await prisma.roomInvitee.createMany({
-      data: change.guests.map((email) => ({ roomId, email, invitedById })),
-      skipDuplicates: true,
-    })
-  }
-  if (change.promoted.length) {
-    await prisma.roomInvitee.updateMany({
-      where: { roomId, email: { in: change.promoted } },
-      data: { isCoOrganizer: true },
-    })
-  }
-  if (change.demoted.length) {
-    await prisma.roomInvitee.updateMany({
-      where: { roomId, email: { in: change.demoted } },
-      data: { isCoOrganizer: false },
-    })
-  }
-}
-
 /** Only the room's owner hands out moderation rights, as in « Salles de réunion ». */
 const coHostDenied = (res: Response) =>
   res.status(403).json({
     detail: 'Seul le propriétaire de la salle peut désigner des co-animateurs.',
-  })
-
-/** The meeting as Google Calendar receives it. */
-const googleEventOf = (m: MeetingWithRelations) =>
-  buildGoogleEvent({
-    id: m.id,
-    title: m.title,
-    description: m.description,
-    startsAt: m.startsAt,
-    endsAt: m.endsAt,
-    timezone: m.timezone,
-    url: roomUrl(m.room),
-    attendees: m.attendees.map((a) => a.email),
   })
 
 /**
@@ -252,6 +67,9 @@ function googleFailure(res: Response, err: unknown) {
     detail: 'Google Agenda n’a pas répondu. Réessayez dans un instant.',
   })
 }
+
+const MAX_ATTENDEES = 200
+const MAX_DURATION_MS = 24 * 3600 * 1000
 
 const slotSchema = z
   .object({
@@ -287,7 +105,7 @@ scheduleRouter.get('/', async (req, res) => {
     include: withRelations,
   })
   res.json({
-    results: await Promise.all(meetings.map((m) => serialize(m, user))),
+    results: await Promise.all(meetings.map((m) => serializeMeeting(m, user))),
   })
 })
 
@@ -303,7 +121,7 @@ scheduleRouter.get('/people/', searchLimiter, async (req, res) => {
 scheduleRouter.get('/:id/', async (req, res) => {
   const m = await visibleMeeting(req.params.id, req.user!)
   if (!m) return res.status(404).json({ detail: 'Réunion introuvable.' })
-  res.json(await serialize(m, req.user!))
+  res.json(await serializeMeeting(m, req.user!))
 })
 
 /* ---------------------------------------------------------------- write -- */
@@ -406,7 +224,7 @@ scheduleRouter.post('/', async (req, res) => {
   }
   mail ??= { ...(await sendInvitations(created, 'new', guests)), via: 'email' }
   logger.info(`[schedule] ${user.email} planned ${created.id} with ${guests.length} guest(s) via ${mail.via}`)
-  res.status(201).json({ meeting: await serialize(created, user), mail })
+  res.status(201).json({ meeting: await serializeMeeting(created, user), mail })
 })
 
 const updateSchema = z.object({
@@ -522,7 +340,7 @@ scheduleRouter.patch('/:id/', async (req, res) => {
   const mail: MailReport = updated.googleEventId
     ? { sent: guests.length, failed: [], via: 'google' }
     : { ...(await sendInvitations(updated, 'update', guests)), via: 'email' }
-  res.json({ meeting: await serialize(updated, user), mail })
+  res.json({ meeting: await serializeMeeting(updated, user), mail })
 })
 
 /** DELETE /:id/ — cancel (organiser only): the event leaves every calendar. */

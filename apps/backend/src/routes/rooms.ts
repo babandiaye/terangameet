@@ -48,7 +48,7 @@ const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 roomsRouter.post("/creation-callback/", async (req, res) => {
   const callbackId = String(req.body?.callback_id ?? "");
   if (!callbackId)
-    return res.status(400).json({ detail: "callback_id is required." });
+    return res.status(400).json({ detail: "callback_id est requis." });
   const raw = await redis.get(CALLBACK_PREFIX + callbackId);
   if (!raw) return res.status(404).json({ status: "pending" });
   res.json({ status: "success", room: JSON.parse(raw) });
@@ -70,7 +70,7 @@ roomsRouter.post("/", requireAuth, async (req, res) => {
   if (!parsed.success) {
     return res
       .status(400)
-      .json({ detail: "Invalid payload", errors: parsed.error.flatten() });
+      .json({ detail: "Requête invalide.", errors: parsed.error.flatten() });
   }
   const { name, callback_id, access_level, configuration } = parsed.data;
   const username = req.query.username as string | undefined;
@@ -147,7 +147,7 @@ roomsRouter.get("/:roomId", async (req, res) => {
   // Unregistered room: allow ad-hoc joining if enabled.
   if (!room) {
     if (!env.rooms.allowUnregistered) {
-      return res.status(404).json({ detail: "Room not found." });
+      return res.status(404).json({ detail: "Salle introuvable." });
     }
     const token = await generateLiveKitToken({
       room: roomId,
@@ -203,11 +203,11 @@ roomsRouter.patch("/:roomId", requireAuth, async (req, res) => {
       ? { id: req.params.roomId }
       : { slug: req.params.roomId },
   });
-  if (!room) return res.status(404).json({ detail: "Room not found." });
+  if (!room) return res.status(404).json({ detail: "Salle introuvable." });
   const role = await getRole(room.id, req.user!.id);
   // Platform administrators may edit any room (from the admin console).
   if (!isAdminOrOwner(role) && !req.user!.isStaff)
-    return res.status(403).json({ detail: "Insufficient privileges." });
+    return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
   const schema = z.object({
     name: z.string().trim().min(1).max(ROOM_NAME_MAX).optional(),
@@ -216,7 +216,7 @@ roomsRouter.patch("/:roomId", requireAuth, async (req, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success)
-    return res.status(400).json({ detail: "Invalid payload" });
+    return res.status(400).json({ detail: "Requête invalide." });
 
   const updated = await prisma.room.update({
     where: { id: room.id },
@@ -264,7 +264,7 @@ roomsRouter.delete("/:roomId", requireStaff, async (req, res) => {
       : { slug: req.params.roomId },
     include: { recordings: { select: { id: true, mode: true, status: true } } },
   });
-  if (!room) return res.status(404).json({ detail: "Room not found." });
+  if (!room) return res.status(404).json({ detail: "Salle introuvable." });
   if (room.recordings.some((r) => ["INITIATED", "ACTIVE"].includes(r.status))) {
     return res.status(409).json({
       detail: "Un enregistrement est en cours dans cette salle : arrêtez-le d'abord.",
