@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { showActionError } from '@/features/notifications/utils'
 import { useTranslation } from 'react-i18next'
 import { useConnectionState, useRoomContext } from '@livekit/components-react'
 import { ConnectionState } from 'livekit-client'
@@ -69,7 +70,7 @@ export const EndMeetingButton = ({
             onPress={() => {
               setIsConfirming(false)
               endMeeting().catch((e) =>
-                console.error('Failed to end the meeting:', e)
+                showActionError(e, 'La réunion n’a pas pu être terminée.')
               )
             }}
           >

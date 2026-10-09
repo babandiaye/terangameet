@@ -235,3 +235,41 @@ export const Td = ({ children }: { children: ReactNode }) => (
     {children}
   </td>
 )
+
+/**
+ * What a list or a detail shows when its data could not be loaded — instead
+ * of an empty table or an endless « Chargement… ». The retry reruns the query.
+ */
+export const LoadError = ({ what, onRetry }: { what: string; onRetry: () => void }) => (
+  <div
+    role="alert"
+    className={css({
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: '0.5rem 0.9rem',
+      padding: '0.8rem 1rem',
+      borderRadius: '10px',
+      backgroundColor: 'danger.subtle',
+      color: 'danger.subtle-text',
+      fontSize: '0.9rem',
+    })}
+  >
+    <span>Impossible de charger {what}. Vérifiez votre connexion, puis réessayez.</span>
+    <button
+      type="button"
+      onClick={onRetry}
+      className={css({
+        padding: '0.3rem 0.8rem',
+        borderRadius: '8px',
+        border: '1px solid currentColor',
+        background: 'transparent',
+        color: 'inherit',
+        fontWeight: 600,
+        cursor: 'pointer',
+      })}
+    >
+      Réessayer
+    </button>
+  </div>
+)

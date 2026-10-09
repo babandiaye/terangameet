@@ -333,7 +333,7 @@ export function AnalyticsDashboard() {
           <div className={css({ display: 'flex', flexDirection: 'column', gap: '0.75rem' })}>
             {metrics.participants.length === 0 && (
               <div className={css({ color: '#7c8aa5', fontSize: '0.9rem' })}>
-                Aucune donnée pour l'instant.
+                Aucune donnée pour l’instant.
               </div>
             )}
             {metrics.participants.map((p, i) => {

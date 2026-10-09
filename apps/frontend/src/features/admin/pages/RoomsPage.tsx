@@ -7,7 +7,7 @@ import { deleteAdminRoom, fetchAdminRooms } from '../api/adminApi'
 import type { AdminRoom } from '../api/types'
 import { errorMessage } from '@/features/me/components/roomAccessLevels'
 import { RoomDetailDialog } from '@/features/me/components/RoomDetailDialog'
-import { Badge, Pagination, Table, Th, Td, SortableTh } from '@/components/console/ui'
+import { Badge, Pagination, Table, Th, Td, SortableTh, LoadError } from '@/components/console/ui'
 import { formatDateTime } from '@/components/console/utils'
 
 type SortField = 'name' | 'sessions' | 'recordings' | 'date'
@@ -28,7 +28,7 @@ export const RoomsPage = () => {
   const [toDelete, setToDelete] = useState<AdminRoom | null>(null)
   const [toEdit, setToEdit] = useState<string | null>(null)
   const queryClient = useQueryClient()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'rooms', page, search, sort, order],
     queryFn: () => fetchAdminRooms({ page, search, sort, order }),
   })
@@ -69,6 +69,8 @@ export const RoomsPage = () => {
 
       {isLoading ? (
         <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
+      ) : isError ? (
+        <LoadError what="les salles" onRetry={() => refetch()} />
       ) : (
         <>
           <Table>

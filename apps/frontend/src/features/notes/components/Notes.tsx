@@ -7,11 +7,30 @@ import { useUser } from '@/features/auth/api/useUser'
 import { fetchNotes, saveNotes } from '../api/notesApi'
 
 const LS_PREFIX = 'tm-notes:'
-type Status = 'idle' | 'saving' | 'saved'
+const SAVE_DELAY_MS = 800
+type Status = 'idle' | 'saving' | 'saved' | 'local-only'
+
+// localStorage can be unavailable (private window, blocked site data).
+const readLocal = (key: string) => {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+const writeLocal = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value)
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * Private per-participant notes panel. Persisted server-side for authenticated
- * users, with a localStorage fallback for guests. Auto-saves (debounced).
+ * users, with a localStorage fallback for guests. Auto-saves (debounced), and
+ * saves what is pending when the panel closes or the page goes away.
  */
 export const Notes = () => {
   const room = useRoomData()
@@ -21,49 +40,73 @@ export const Notes = () => {
   const [status, setStatus] = useState<Status>('idle')
   const loadedRef = useRef(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Typed but not saved yet: flushed on close instead of being lost.
+  const pendingRef = useRef<string | null>(null)
+  // Once the participant typed, the server's answer must not overwrite it.
+  const typedRef = useRef(false)
+  const mountedRef = useRef(true)
 
   // Load existing notes once we know the room and auth state.
   useEffect(() => {
     if (!roomId || isLoggedIn === undefined || loadedRef.current) return
     loadedRef.current = true
-    const local = localStorage.getItem(LS_PREFIX + roomId)
+    const local = readLocal(LS_PREFIX + roomId)
     if (isLoggedIn) {
       fetchNotes(roomId)
-        .then((r) => setContent(r.content ?? local ?? ''))
-        .catch(() => local && setContent(local))
+        .then((r) => {
+          if (!typedRef.current) setContent(r.content || local || '')
+        })
+        .catch(() => {
+          if (!typedRef.current && local) setContent(local)
+        })
     } else if (local) {
       setContent(local)
     }
   }, [roomId, isLoggedIn])
 
-  const persist = (value: string) => {
+  const persist = (value: string, opts: { keepalive?: boolean } = {}) => {
     if (!roomId) return
+    pendingRef.current = null
+    const setIfMounted = (next: Status) => mountedRef.current && setStatus(next)
     if (isLoggedIn) {
-      saveNotes(roomId, value)
-        .then(() => setStatus('saved'))
+      saveNotes(roomId, value, opts)
+        .then(() => setIfMounted('saved'))
         .catch(() => {
-          localStorage.setItem(LS_PREFIX + roomId, value)
-          setStatus('saved')
+          // Not on the server: keep a copy here and say so, rather than
+          // claiming it was saved.
+          writeLocal(LS_PREFIX + roomId, value)
+          setIfMounted('local-only')
         })
     } else {
-      localStorage.setItem(LS_PREFIX + roomId, value)
-      setStatus('saved')
+      setIfMounted(writeLocal(LS_PREFIX + roomId, value) ? 'saved' : 'local-only')
     }
   }
 
   const onChange = (value: string) => {
+    typedRef.current = true
+    pendingRef.current = value
     setContent(value)
     setStatus('saving')
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => persist(value), 800)
+    timerRef.current = setTimeout(() => persist(value), SAVE_DELAY_MS)
   }
 
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    },
-    []
-  )
+  // Save what is still pending when the panel closes or the tab goes away.
+  const flushRef = useRef<() => void>(() => {})
+  flushRef.current = () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (pendingRef.current !== null) persist(pendingRef.current, { keepalive: true })
+  }
+  useEffect(() => {
+    mountedRef.current = true
+    const onPageHide = () => flushRef.current()
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      mountedRef.current = false
+      flushRef.current()
+    }
+  }, [])
 
   // Export the current notes as a plain-text (.txt) file.
   const download = () => {
@@ -90,13 +133,17 @@ export const Notes = () => {
   const statusText =
     status === 'saving'
       ? 'Enregistrement…'
-      : status === 'saved'
+      : status === 'local-only'
         ? isLoggedIn
-          ? 'Enregistré'
-          : 'Enregistré sur cet appareil'
-        : isLoggedIn
-          ? 'Notes privées'
-          : 'Notes privées · stockées sur cet appareil'
+          ? 'Non enregistré sur le serveur : une copie est gardée sur cet appareil. Nouvel essai à la prochaine frappe.'
+          : 'Impossible d’enregistrer sur cet appareil (stockage du navigateur bloqué).'
+        : status === 'saved'
+          ? isLoggedIn
+            ? 'Enregistré'
+            : 'Enregistré sur cet appareil'
+          : isLoggedIn
+            ? 'Notes privées'
+            : 'Notes privées · stockées sur cet appareil'
 
   return (
     <div
@@ -129,6 +176,7 @@ export const Notes = () => {
       <textarea
         value={content}
         onChange={(e) => onChange(e.target.value)}
+        aria-label="Notes privées"
         placeholder="Prenez vos notes pendant la réunion…"
         className={css({
           flexGrow: 1,
@@ -146,7 +194,15 @@ export const Notes = () => {
           _focus: { borderColor: 'primary' },
         })}
       />
-      <div className={css({ fontSize: '0.75rem', color: 'greyscale.500', textAlign: 'right' })}>
+      <div
+        role="status"
+        aria-live="polite"
+        className={css({
+          fontSize: '0.75rem',
+          color: status === 'local-only' ? 'danger.600' : 'greyscale.500',
+          textAlign: 'right',
+        })}
+      >
         {statusText}
       </div>
     </div>

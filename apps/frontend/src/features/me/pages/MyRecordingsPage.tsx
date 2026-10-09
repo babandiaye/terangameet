@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'wouter'
 import { css } from '@/styled-system/css'
-import { Badge, Pagination, Table, Th, Td } from '@/components/console/ui'
+import { Badge, Pagination, Table, Th, Td, LoadError } from '@/components/console/ui'
 import { formatDateTime, formatDuration } from '@/components/console/utils'
 import { fetchMyRecordings } from '../api/meApi'
 
@@ -20,7 +20,7 @@ const statusLabel = (status: string): { label: string; tone: 'success' | 'warnin
 export const MyRecordingsPage = () => {
   const [page, setPage] = useState(1)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['me', 'recordings', page],
     queryFn: () => fetchMyRecordings({ page }),
   })
@@ -33,6 +33,8 @@ export const MyRecordingsPage = () => {
 
       {isLoading ? (
         <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
+      ) : isError ? (
+        <LoadError what="vos enregistrements" onRetry={() => refetch()} />
       ) : (
         <>
           <Table>

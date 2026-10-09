@@ -4,6 +4,7 @@ import { NotificationDuration } from './NotificationDuration'
 import type { Participant } from 'livekit-client'
 import type { NotificationPayload } from './NotificationPayload'
 import type { RecordingMode } from '@/features/recording'
+import { ApiError } from '@/api/ApiError'
 
 export const showLowerHandToast = (
   participant: Participant,
@@ -62,5 +63,27 @@ export const notifyRecordingSaveInProgress = (
       type: NotificationType.RecordingSaving,
     },
     { timeout: NotificationDuration.RECORDING_SAVING }
+  )
+}
+
+/**
+ * Tell the moderator an action failed (mute, co-host, end meeting…), with the
+ * server's reason when it gave one. Before, these failures only reached the
+ * browser console: the moderator saw nothing happen and could not know why.
+ */
+export const showActionError = (error: unknown, fallback: string) => {
+  const detail =
+    error instanceof ApiError
+      ? (error.body as { detail?: unknown } | undefined)?.detail
+      : undefined
+  toastQueue.add(
+    {
+      type: NotificationType.ActionFailed,
+      message:
+        typeof detail === 'string' && detail
+          ? `${fallback} ${detail}`
+          : fallback,
+    },
+    { timeout: NotificationDuration.MESSAGE }
   )
 }

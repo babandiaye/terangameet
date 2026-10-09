@@ -17,4 +17,6 @@ export enum NotificationType {
   RecordingSaving = 'recordingSaving',
   PermissionsRemoved = 'permissionsRemoved',
   RoomRenamed = 'roomRenamed',
+  /** A moderation action the server refused or could not carry out. */
+  ActionFailed = 'actionFailed',
 }

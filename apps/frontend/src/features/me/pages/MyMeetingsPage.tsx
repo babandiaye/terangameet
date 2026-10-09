@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { css } from '@/styled-system/css'
 import { RiCloseLine } from '@remixicon/react'
-import { Badge, Pagination, Table, Th, Td } from '@/components/console/ui'
+import { Badge, Pagination, Table, Th, Td, LoadError } from '@/components/console/ui'
 import { RoomLink } from '@/components/console/RoomLink'
 import { formatClock, formatDateTime, formatDuration } from '@/components/console/utils'
 import { fetchMyMeeting, fetchMyMeetings } from '../api/meApi'
@@ -12,7 +12,7 @@ export const MyMeetingsPage = () => {
   const [onlyActive, setOnlyActive] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['me', 'meetings', page, onlyActive],
     queryFn: () => fetchMyMeetings({ page, active: onlyActive ? 'true' : undefined }),
   })
@@ -45,6 +45,8 @@ export const MyMeetingsPage = () => {
 
       {isLoading ? (
         <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
+      ) : isError ? (
+        <LoadError what="votre historique" onRetry={() => refetch()} />
       ) : (
         <>
           <Table>
@@ -123,7 +125,7 @@ export const MyMeetingsPage = () => {
 }
 
 const MyMeetingDetailModal = ({ id, onClose }: { id: string; onClose: () => void }) => {
-  const { data } = useQuery({ queryKey: ['me', 'meeting', id], queryFn: () => fetchMyMeeting(id) })
+  const { data, isError, refetch } = useQuery({ queryKey: ['me', 'meeting', id], queryFn: () => fetchMyMeeting(id) })
   const titleId = useId()
 
   useEffect(() => {
@@ -209,7 +211,9 @@ const MyMeetingDetailModal = ({ id, onClose }: { id: string; onClose: () => void
           Participants {data ? `(${data.participants.length})` : ''}
         </h4>
 
-        {!data ? (
+        {isError ? (
+          <LoadError what="cette réunion" onRetry={() => refetch()} />
+        ) : !data ? (
           <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
         ) : (
           <Table>

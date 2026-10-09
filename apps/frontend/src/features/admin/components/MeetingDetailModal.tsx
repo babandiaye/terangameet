@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { css } from '@/styled-system/css'
 import { RiCloseLine } from '@remixicon/react'
 import { fetchAdminMeeting } from '../api/adminApi'
-import { Badge, Table, Th, Td } from '@/components/console/ui'
+import { Badge, Table, Th, Td, LoadError } from '@/components/console/ui'
 import { RoomLink } from '@/components/console/RoomLink'
 import {
   formatDateTime,
@@ -24,7 +24,7 @@ export const MeetingDetailModal = ({
   id: string
   onClose: () => void
 }) => {
-  const { data } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: ['admin', 'meeting', id],
     queryFn: () => fetchAdminMeeting(id),
   })
@@ -142,7 +142,9 @@ export const MeetingDetailModal = ({
           Participants {data ? `(${data.participants.length})` : ''}
         </h4>
 
-        {!data ? (
+        {isError ? (
+          <LoadError what="cette réunion" onRetry={() => refetch()} />
+        ) : !data ? (
           <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
         ) : data.participants.length === 0 ? (
           <div className={css({ color: 'greyscale.500', fontSize: '0.9rem' })}>

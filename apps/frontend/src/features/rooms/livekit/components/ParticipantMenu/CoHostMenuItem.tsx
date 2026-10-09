@@ -1,4 +1,5 @@
 import type { Participant } from 'livekit-client'
+import { showActionError } from '@/features/notifications/utils'
 import { menuRecipe } from '@/primitives/menuRecipe'
 import { HStack } from '@/styled-system/jsx'
 import { RiUserStarLine, RiUserUnfollowLine } from '@remixicon/react'
@@ -24,7 +25,7 @@ export const CoHostMenuItem = ({
       className={menuRecipe({ icon: true }).item}
       onAction={() =>
         promoteParticipant(participant, !isCoHost).catch((e) =>
-          console.error('Failed to update co-host:', e)
+          showActionError(e, 'Le rôle de co-animateur n’a pas pu être modifié.')
         )
       }
     >

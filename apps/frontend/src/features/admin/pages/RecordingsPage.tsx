@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'wouter'
 import { css } from '@/styled-system/css'
 import { fetchAdminRecordings } from '../api/adminApi'
-import { Badge, Pagination, Table, Th, Td, SortableTh } from '@/components/console/ui'
+import { Badge, Pagination, Table, Th, Td, SortableTh, LoadError } from '@/components/console/ui'
 import { formatDateTime } from '@/components/console/utils'
 
 const statusTone = (s: string): 'success' | 'warning' | 'danger' | 'neutral' => {
@@ -21,7 +21,7 @@ export const RecordingsPage = () => {
   const [sort, setSort] = useState<SortField>('date')
   const [order, setOrder] = useState<Order>('desc')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'recordings', page, sort, order],
     queryFn: () => fetchAdminRecordings({ page, sort, order }),
   })
@@ -41,6 +41,8 @@ export const RecordingsPage = () => {
     <div className={css({ display: 'flex', flexDirection: 'column', gap: '1rem' })}>
       {isLoading ? (
         <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
+      ) : isError ? (
+        <LoadError what="les enregistrements" onRetry={() => refetch()} />
       ) : (
         <>
           <Table>

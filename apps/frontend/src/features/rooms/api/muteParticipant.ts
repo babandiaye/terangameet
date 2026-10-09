@@ -1,4 +1,5 @@
 import { type Participant, Track } from 'livekit-client'
+import { showActionError } from '@/features/notifications/utils'
 import Source = Track.Source
 import { useRoomData } from '../livekit/hooks/useRoomData'
 import {
@@ -36,7 +37,10 @@ export const useMuteParticipant = () => {
         ? { Authorization: `Bearer ${apiRoomData.livekit.token}` }
         : undefined
       if (!isAdminOrOwner && !headers) {
-        console.error('Cannot mute participant: missing auth token')
+        showActionError(
+          null,
+          'Impossible de couper ce micro : rechargez la page.'
+        )
         return
       }
 
@@ -54,8 +58,9 @@ export const useMuteParticipant = () => {
           }
         )
       } catch (error) {
-        console.error(
-          `Failed to mute participant ${participant.identity}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        showActionError(
+          error,
+          `Le micro de ${participant.name || 'ce participant'} n’a pas pu être coupé.`
         )
         return
       }

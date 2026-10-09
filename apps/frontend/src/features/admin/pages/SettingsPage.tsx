@@ -189,8 +189,11 @@ const PurgeSection = () => {
       </p>
 
       <div className={css({ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.8rem' })}>
-        <label className={css({ fontSize: '0.9rem', color: 'greyscale.700' })}>Conserver pendant</label>
+        <label htmlFor="purge-period" className={css({ fontSize: '0.9rem', color: 'greyscale.700' })}>
+          Conserver pendant
+        </label>
         <select
+          id="purge-period"
           value={data.period}
           disabled={periodMutation.isPending}
           onChange={(e) => periodMutation.mutate(e.target.value)}
@@ -212,6 +215,11 @@ const PurgeSection = () => {
         </select>
         {periodMutation.isPending && (
           <span className={css({ fontSize: '0.8rem', color: 'greyscale.500' })}>Enregistrement…</span>
+        )}
+        {periodMutation.isError && (
+          <span role="alert" className={css({ fontSize: '0.8rem', color: 'danger.600' })}>
+            La période n’a pas pu être modifiée. Réessayez.
+          </span>
         )}
       </div>
 
@@ -295,6 +303,12 @@ const PurgeSection = () => {
           </button>
         )}
       </div>
+
+      {runMutation.isError && (
+        <p role="alert" className={css({ fontSize: '0.85rem', color: 'danger.600', marginTop: '0.6rem' })}>
+          La purge n’a pas pu être lancée. Réessayez dans un instant.
+        </p>
+      )}
 
       {runMutation.data && (
         <p className={css({ fontSize: '0.82rem', color: 'greyscale.600', marginTop: '0.6rem' })}>

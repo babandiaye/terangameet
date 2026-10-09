@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { css } from '@/styled-system/css'
 import { fetchAdminMeetings } from '../api/adminApi'
-import { Badge, Pagination, Table, Th, Td } from '@/components/console/ui'
+import { Badge, Pagination, Table, Th, Td, LoadError } from '@/components/console/ui'
 import { MeetingDetailModal } from '../components/MeetingDetailModal'
 import { formatDateTime, formatDuration } from '@/components/console/utils'
 
@@ -11,7 +11,7 @@ export const MeetingsPage = () => {
   const [onlyActive, setOnlyActive] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'meetings', page, onlyActive],
     queryFn: () =>
       fetchAdminMeetings({ page, active: onlyActive ? 'true' : undefined }),
@@ -43,6 +43,8 @@ export const MeetingsPage = () => {
 
       {isLoading ? (
         <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
+      ) : isError ? (
+        <LoadError what="l’historique des réunions" onRetry={() => refetch()} />
       ) : (
         <>
           <Table>

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { css } from '@/styled-system/css'
-import { RiSearchLine, RiCloseLine } from '@remixicon/react'
+import { RiSearchLine } from '@remixicon/react'
+import { Button, Dialog } from '@/primitives'
+import { errorMessage } from '@/features/me/components/roomAccessLevels'
 import { useUser } from '@/features/auth/api/useUser'
 import { fetchAdminUsers, fetchAdminUser, patchAdminUser } from '../api/adminApi'
 import type { AdminUserRow } from '../api/types'
-import { Badge, Pagination, Table, Th, Td } from '@/components/console/ui'
+import { Badge, Pagination, Table, Th, Td, LoadError } from '@/components/console/ui'
 import { formatDateTime, formatDuration } from '@/components/console/utils'
 
 export const UsersPage = () => {
@@ -15,15 +17,21 @@ export const UsersPage = () => {
   const [search, setSearch] = useState('')
   const [detailId, setDetailId] = useState<string | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'users', page, search],
     queryFn: () => fetchAdminUsers({ page, search }),
   })
 
+  // Promoting, demoting, deactivating: each is confirmed first, with what it
+  // actually does, and a refusal from the server is shown in the dialog.
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const mutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: { is_active?: boolean; is_admin?: boolean } }) =>
       patchAdminUser(id, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+      setPendingAction(null)
+    },
   })
 
   return (
@@ -55,6 +63,8 @@ export const UsersPage = () => {
 
       {isLoading ? (
         <div className={css({ color: 'greyscale.500' })}>Chargement…</div>
+      ) : isError ? (
+        <LoadError what="la liste des utilisateurs" onRetry={() => refetch()} />
       ) : (
         <>
           <Table>
@@ -75,8 +85,8 @@ export const UsersPage = () => {
                   user={u}
                   isMe={u.id === me?.id}
                   pending={mutation.isPending}
-                  onToggleAdmin={() => mutation.mutate({ id: u.id, body: { is_admin: !u.is_admin } })}
-                  onToggleActive={() => mutation.mutate({ id: u.id, body: { is_active: !u.is_active } })}
+                  onToggleAdmin={() => setPendingAction({ user: u, kind: 'admin' })}
+                  onToggleActive={() => setPendingAction({ user: u, kind: 'active' })}
                   onDetail={() => setDetailId(u.id)}
                 />
               ))}
@@ -95,7 +105,22 @@ export const UsersPage = () => {
         </>
       )}
 
-      {detailId && <UserDetailModal id={detailId} onClose={() => setDetailId(null)} />}
+      <UserDetailDialog id={detailId} onClose={() => setDetailId(null)} />
+      <ConfirmUserAction
+        action={pendingAction}
+        isPending={mutation.isPending}
+        error={mutation.error}
+        onConfirm={(a) =>
+          mutation.mutate({
+            id: a.user.id,
+            body: a.kind === 'admin' ? { is_admin: !a.user.is_admin } : { is_active: !a.user.is_active },
+          })
+        }
+        onClose={() => {
+          mutation.reset()
+          setPendingAction(null)
+        }}
+      />
     </div>
   )
 }
@@ -179,41 +204,92 @@ const ActionButton = ({
   </button>
 )
 
-const UserDetailModal = ({ id, onClose }: { id: string; onClose: () => void }) => {
-  const { data } = useQuery({ queryKey: ['admin', 'user', id], queryFn: () => fetchAdminUser(id) })
+type PendingAction = { user: AdminUserRow; kind: 'admin' | 'active' }
+
+/** What each change really does, said before it is done. */
+const describeAction = ({ user, kind }: PendingAction) => {
+  const who = user.full_name || user.email || 'Ce compte'
+  if (kind === 'admin') {
+    return user.is_admin
+      ? {
+          title: 'Retirer les droits d’administrateur ?',
+          body: `${who} n’aura plus accès à la console d’administration.`,
+          confirm: 'Retirer les droits',
+        }
+      : {
+          title: 'Promouvoir administrateur ?',
+          body: `${who} accédera à la console d’administration : comptes, salles (modification et suppression), enregistrements et paramètres de la plateforme.`,
+          confirm: 'Promouvoir',
+        }
+  }
+  return user.is_active
+    ? {
+        title: 'Désactiver ce compte ?',
+        body: `${who} est déconnecté immédiatement, retiré des réunions en cours, et ne pourra plus se connecter tant que le compte n’est pas réactivé.`,
+        confirm: 'Désactiver',
+      }
+    : {
+        title: 'Réactiver ce compte ?',
+        body: `${who} pourra de nouveau se connecter.`,
+        confirm: 'Réactiver',
+      }
+}
+
+const ConfirmUserAction = ({
+  action,
+  isPending,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  action: PendingAction | null
+  isPending: boolean
+  error: unknown
+  onConfirm: (a: PendingAction) => void
+  onClose: () => void
+}) => {
+  const text = action ? describeAction(action) : null
   return (
-    <div
-      onClick={onClose}
-      className={css({
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: '1rem',
-      })}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className={css({
-          backgroundColor: 'white',
-          borderRadius: '14px',
-          padding: '1.5rem',
-          width: '100%',
-          maxWidth: '560px',
-          maxHeight: '85vh',
-          overflowY: 'auto',
-        })}
-      >
-        <div className={css({ display: 'flex', justifyContent: 'space-between', alignItems: 'start' })}>
-          <h3 className={css({ fontSize: '1.2rem', fontWeight: 700 })}>{data?.full_name || 'Utilisateur'}</h3>
-          <button onClick={onClose} className={css({ cursor: 'pointer', background: 'none', border: 'none' })}>
-            <RiCloseLine size={22} />
-          </button>
+    <Dialog isOpen={!!action} onOpenChange={(open) => !open && onClose()} role="alertdialog" title={text?.title}>
+      {action && text && (
+        <div className={css({ display: 'flex', flexDirection: 'column', gap: '1rem' })}>
+          <p>{text.body}</p>
+          {!!error && (
+            <p role="alert" className={css({ color: 'danger.600', fontSize: '0.9rem' })}>
+              {errorMessage(error, 'La modification n’a pas pu être enregistrée.')}
+            </p>
+          )}
+          <div className={css({ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' })}>
+            <Button variant="primary" onPress={() => onConfirm(action)} isDisabled={isPending}>
+              {isPending ? 'Enregistrement…' : text.confirm}
+            </Button>
+            <Button variant="secondary" onPress={onClose}>
+              Annuler
+            </Button>
+          </div>
         </div>
-        {!data ? (
+      )}
+    </Dialog>
+  )
+}
+
+const UserDetailDialog = ({ id, onClose }: { id: string | null; onClose: () => void }) => {
+  const { data, isError, refetch } = useQuery({
+    queryKey: ['admin', 'user', id],
+    queryFn: () => fetchAdminUser(id!),
+    enabled: !!id,
+  })
+  return (
+    <Dialog
+      isOpen={!!id}
+      onOpenChange={(open) => !open && onClose()}
+      type="flex"
+      title={data?.full_name || 'Utilisateur'}
+    >
+      <div className={css({ width: 'min(34rem, calc(100vw - 5rem))', maxHeight: 'calc(100dvh - 11rem)', overflowY: 'auto' })}>
+        {isError ? (
+          <LoadError what="ce compte" onRetry={() => refetch()} />
+        ) : !data ? (
           <div className={css({ color: 'greyscale.500', marginTop: '1rem' })}>Chargement…</div>
         ) : (
           <>
@@ -242,7 +318,9 @@ const UserDetailModal = ({ id, onClose }: { id: string; onClose: () => void }) =
                     key={s.id}
                     className={css({
                       display: 'flex',
+                      flexWrap: 'wrap',
                       justifyContent: 'space-between',
+                      gap: '0.25rem 1rem',
                       fontSize: '0.85rem',
                       padding: '0.5rem 0.7rem',
                       backgroundColor: 'greyscale.50',
@@ -260,6 +338,6 @@ const UserDetailModal = ({ id, onClose }: { id: string; onClose: () => void }) =
           </>
         )}
       </div>
-    </div>
+    </Dialog>
   )
 }
