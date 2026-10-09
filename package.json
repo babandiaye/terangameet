@@ -1,6 +1,6 @@
 {
   "name": "terangameet",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "private": true,
   "description": "TerangaMeet v2 — visioconférence UN-CHK (fullstack Node.js/React, basé sur Meet de La Suite Numérique)",
   "engines": {

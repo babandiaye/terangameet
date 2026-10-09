@@ -10,7 +10,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.1.4** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.1.5** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -159,6 +159,12 @@ Règle unique, testée : `apps/backend/src/lib/roomAccess.ts`. Les participants
 prévus sont reconnus par l'email de leur compte SenID. Un code de salle
 inexistant est refusé (`ALLOW_UNREGISTERED_ROOMS=false`).
 
+## Sauvegardes
+
+Chaque nuit à 02:00, la base et la configuration sont sauvegardées dans
+`/var/backups/terangameetv2/` (14 jours) et vérifiées par une restauration de
+contrôle. Détails, Bacula et procédures de restauration : `docs/SAUVEGARDES.md`.
+
 ## Contrat d'API (principaux endpoints)
 
 Sous `/api/v1.0/` :
@@ -186,6 +192,9 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.1.5** — sauvegardes nocturnes de la base et de la configuration,
+  vérifiées par restauration, visibles dans l'état des services
+  (`docs/SAUVEGARDES.md`) ; sonde SMTP fiabilisée.
 - **2.1.4** — interface en français uniquement (catalogues en, de, nl et
   sélecteur de langue retirés).
 - **2.1.3** — maintenabilité : badges de la console enfin colorés ; code
