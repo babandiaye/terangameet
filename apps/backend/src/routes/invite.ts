@@ -85,7 +85,7 @@ inviteRouter.post(
   },
 );
 
-function buildText(p: {
+export function buildText(p: {
   inviter: string;
   url: string;
   roomLabel: string;
@@ -104,7 +104,7 @@ function buildText(p: {
   ].join("\n");
 }
 
-function buildHtml(p: {
+export function buildHtml(p: {
   inviter: string;
   url: string;
   roomLabel: string;

@@ -6,11 +6,14 @@ import { prisma } from "../lib/prisma";
 import { redis } from "../lib/redis";
 import { env } from "../config/env";
 import { logger } from "../lib/logger";
-import { requireAuth } from "../auth/middleware";
+import { requireAuth, requireStaff } from "../auth/middleware";
 import { generateLiveKitToken } from "../livekit/token";
 import { notifyRoom } from "../livekit/notify";
 import { participantDisplayName } from "../lib/participantName";
 import { slugify, isUuid } from "../utils/slug";
+import { entryDecision } from "../lib/roomAccess";
+import { deleteObject } from "../lib/s3";
+import { recordingObjectKey } from "../lib/recordingKey";
 import {
   getRole,
   isAdminOrOwner,
@@ -164,14 +167,16 @@ roomsRouter.get("/:roomId", async (req, res) => {
   const role = await getRole(room.id, req.user?.id);
   const admin = isAdminOrOwner(role);
 
-  // Access control.
-  if (room.accessLevel === "TRUSTED" && !req.user) {
-    return res
-      .status(401)
-      .json({ detail: "Authentication required for this room." });
-  }
-  if (room.accessLevel === "RESTRICTED" && !admin) {
-    // The frontend will fall back to the lobby (request-entry) flow.
+  // Access control. No token means "wait": the join screen then asks to enter
+  // through the lobby — and, for a trusted room, suggests signing in instead.
+  // (Trusted used to answer 401 here, which the join screen read as "no room
+  // data" and sent straight to request-entry, which let guests in unasked.)
+  const decision = entryDecision({
+    accessLevel: room.accessLevel,
+    isAuthenticated: !!req.user,
+    role,
+  });
+  if (decision === "lobby") {
     return res.json(serializeRoom(room, { isAdministrable: false }));
   }
 
@@ -200,7 +205,8 @@ roomsRouter.patch("/:roomId", requireAuth, async (req, res) => {
   });
   if (!room) return res.status(404).json({ detail: "Room not found." });
   const role = await getRole(room.id, req.user!.id);
-  if (!isAdminOrOwner(role))
+  // Platform administrators may edit any room (from the admin console).
+  if (!isAdminOrOwner(role) && !req.user!.isStaff)
     return res.status(403).json({ detail: "Insufficient privileges." });
 
   const schema = z.object({
@@ -240,19 +246,35 @@ roomsRouter.patch("/:roomId", requireAuth, async (req, res) => {
   res.json(serializeRoom(updated, { isAdministrable: true }));
 });
 
-/** DELETE /api/v1.0/rooms/:roomId — owner only. */
-roomsRouter.delete("/:roomId", requireAuth, async (req, res) => {
+/**
+ * DELETE /api/v1.0/rooms/:roomId — platform administrators only.
+ *
+ * Deliberately not the owner: a deleted link stops working for everyone who
+ * was given it, so the decision sits with the administrators.
+ *
+ * The session history survives (its room reference is set to null), but the
+ * recordings cascade with the room: their files are removed from storage
+ * first, so nothing is left orphaned in the bucket. Refused while a recording
+ * is running — the egress would be writing to a room that no longer exists.
+ */
+roomsRouter.delete("/:roomId", requireStaff, async (req, res) => {
   const room = await prisma.room.findFirst({
     where: isUuid(req.params.roomId)
       ? { id: req.params.roomId }
       : { slug: req.params.roomId },
+    include: { recordings: { select: { id: true, mode: true, status: true } } },
   });
   if (!room) return res.status(404).json({ detail: "Room not found." });
-  const role = await getRole(room.id, req.user!.id);
-  if (role !== "OWNER")
-    return res
-      .status(403)
-      .json({ detail: "Only the owner can delete a room." });
+  if (room.recordings.some((r) => ["INITIATED", "ACTIVE"].includes(r.status))) {
+    return res.status(409).json({
+      detail: "Un enregistrement est en cours dans cette salle : arrêtez-le d'abord.",
+    });
+  }
+  for (const r of room.recordings) {
+    await deleteObject(recordingObjectKey(r), env.recording.bucket).catch((err) =>
+      logger.warn(`[rooms] recording file delete failed for ${r.id}`, err),
+    );
+  }
   await prisma.room.delete({ where: { id: room.id } });
   logger.info(`[rooms] deleted ${room.id}`);
   res.status(204).send();

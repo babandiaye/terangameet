@@ -69,6 +69,7 @@ model User {
   files             File[]            @relation("FileCreator")
   notes             MeetingNote[]
   meetingSessions   MeetingSession[]  @relation("MeetingCreator")
+  roomInvitesSent   RoomInvitee[]     @relation("RoomInviteeInviter")
 
   @@index([email])
   @@map("users")
@@ -101,8 +102,31 @@ model Room {
   accesses   RoomAccess[]
   recordings Recording[]
   sessions   MeetingSession[]
+  invitees   RoomInvitee[]
 
   @@map("rooms")
+}
+
+/// Expected participants of a room, by email. Keyed on the address rather than
+/// a User so people can be listed before their first sign-in: they are matched
+/// on the email of their SenID account when they arrive. In a restricted room a
+/// listed person skips the waiting room; a co-organizer also gets moderation
+/// rights at every session (resolved as Role.ADMIN).
+model RoomInvitee {
+  id            String   @id @default(uuid())
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId        String
+  /// Always stored lowercased; compared against the lowercased account email.
+  email         String
+  isCoOrganizer Boolean  @default(false)
+  invitedBy     User?    @relation("RoomInviteeInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitedById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([roomId, email])
+  @@index([email])
+  @@map("room_invitees")
 }
 
 /// A real meeting occurrence, tracked from LiveKit room_started/room_finished
@@ -124,8 +148,8 @@ model MeetingSession {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  participants    MeetingParticipant[]
-  recordings      Recording[]
+  participants MeetingParticipant[]
+  recordings   Recording[]
 
   @@index([startedAt])
   @@index([creatorId])
@@ -136,15 +160,15 @@ model MeetingSession {
 /// One row per participant per meeting session. Entry = first join, exit = last
 /// leave: reconnections keep the earliest joinedAt and update lastLeftAt only.
 model MeetingParticipant {
-  id           String         @id @default(uuid())
-  session      MeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sessionId    String
-  identity     String
-  name         String?
-  firstJoinedAt DateTime      @default(now())
-  lastLeftAt   DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id            String         @id @default(uuid())
+  session       MeetingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId     String
+  identity      String
+  name          String?
+  firstJoinedAt DateTime       @default(now())
+  lastLeftAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@unique([sessionId, identity])
   @@index([sessionId])

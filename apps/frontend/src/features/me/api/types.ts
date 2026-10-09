@@ -74,3 +74,53 @@ export interface MyDashboard {
   }
   recent_meetings: MyMeeting[]
 }
+
+/* ---------------------------------------------------------------- rooms -- */
+
+export type RoomAccessLevel = 'public' | 'trusted' | 'restricted'
+
+/** A room the user organises (owner, or co-organizer by the participant list). */
+export interface MyRoom {
+  id: string
+  name: string
+  slug: string
+  url: string
+  access_level: RoomAccessLevel
+  my_role: 'owner' | 'co_organizer'
+  invitees_count: number
+  sessions_count: number
+  last_session_at: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface RoomInvitee {
+  id: string
+  email: string
+  is_co_organizer: boolean
+  /** Has signed in at least once with this address. */
+  has_account: boolean
+  full_name: string | null
+  created_at: string
+}
+
+export interface MyRoomDetail {
+  id: string
+  name: string
+  slug: string
+  url: string
+  access_level: RoomAccessLevel
+  /** 'admin': a platform administrator editing someone else's room. */
+  my_role: 'owner' | 'co_organizer' | 'admin'
+  owner: { full_name: string | null; email: string | null } | null
+  invitees: RoomInvitee[]
+  max_invitees: number
+  email_enabled: boolean
+}
+
+export interface AddInviteesResult {
+  added: string[]
+  already_listed: string[]
+  invalid: string[]
+  invitees: RoomInvitee[]
+}

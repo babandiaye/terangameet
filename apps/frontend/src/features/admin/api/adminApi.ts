@@ -69,3 +69,6 @@ export const fetchAdminMeeting = (id: string) =>
 
 export const fetchAdminRecordings = (params: { page?: number; sort?: string; order?: string }) =>
   fetchApi<Paginated<AdminRecording>>(`/admin/recordings/${qs(params)}`)
+
+/** Administrators only: the link stops working and the room's recordings go with it. */
+export const deleteAdminRoom = (id: string) => fetchApi<void>(`/rooms/${id}/`, { method: 'DELETE' })

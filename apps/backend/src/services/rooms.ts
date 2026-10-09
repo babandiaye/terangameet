@@ -101,7 +101,15 @@ export interface RoomConfiguration {
   everyone_can_mute?: boolean | null;
 }
 
-/** Returns the user's role on a room, or null. */
+/**
+ * The user's standing on a room, or null.
+ *
+ * A persisted RoomAccess (the owner) wins. Otherwise the room's participant
+ * list is checked against the email of the user's account: a co-organizer
+ * counts as ADMIN — moderation rights at every session — and any other listed
+ * participant as MEMBER, which lets them into a restricted room without
+ * waiting but grants nothing else.
+ */
 export async function getRole(
   roomId: string,
   userId?: string | null,
@@ -110,7 +118,19 @@ export async function getRole(
   const access = await prisma.roomAccess.findUnique({
     where: { userId_roomId: { userId, roomId } },
   });
-  return access?.role ?? null;
+  if (access) return access.role;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  if (!user?.email) return null;
+  const invitee = await prisma.roomInvitee.findUnique({
+    where: { roomId_email: { roomId, email: user.email.toLowerCase() } },
+    select: { isCoOrganizer: true },
+  });
+  if (!invitee) return null;
+  return invitee.isCoOrganizer ? "ADMIN" : "MEMBER";
 }
 
 export function isAdminOrOwner(role: Role | null): boolean {

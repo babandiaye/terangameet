@@ -1,13 +1,18 @@
 import { ReactNode } from 'react'
 import { Link } from 'wouter'
 import { css } from '@/styled-system/css'
-import { RiDashboardLine, RiHistoryLine, RiFilmLine } from '@remixicon/react'
+import {
+  RiDashboardLine,
+  RiDoorOpenLine,
+  RiHistoryLine,
+  RiFilmLine,
+} from '@remixicon/react'
 import { useHomePath } from '@/features/auth/utils/useHomePath'
 import { Screen } from '@/layout/Screen'
 import { ConsoleTopBar } from '@/components/console/TopBar'
 import { ConsoleSidebarFooter } from '@/components/console/SidebarFooter'
 
-export type MySpaceSection = 'dashboard' | 'meetings' | 'recordings'
+export type MySpaceSection = 'dashboard' | 'rooms' | 'meetings' | 'recordings'
 
 const NAV: {
   key: MySpaceSection
@@ -15,6 +20,7 @@ const NAV: {
   Icon: typeof RiDashboardLine
 }[] = [
   { key: 'dashboard', label: 'Tableau de bord', Icon: RiDashboardLine },
+  { key: 'rooms', label: 'Salles de réunion', Icon: RiDoorOpenLine },
   { key: 'meetings', label: 'Historique des sessions', Icon: RiHistoryLine },
   { key: 'recordings', label: 'Enregistrements', Icon: RiFilmLine },
 ]

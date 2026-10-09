@@ -7,9 +7,12 @@ import { generateLiveKitToken } from "../livekit/token";
 import { participantDisplayName } from "../lib/participantName";
 import { notifyRoom } from "../livekit/notify";
 import { colorFromSeed } from "../utils/color";
+import { entryDecision } from "../lib/roomAccess";
 import {
   resolveRoom,
   authorizeModeration,
+  getRole,
+  isAdminOrOwner,
   publishableSources,
   type RoomConfiguration,
 } from "../services/rooms";
@@ -47,13 +50,43 @@ lobbyRouter.post("/:roomId/request-entry/", async (req, res) => {
     z.string().max(100).optional().parse(req.body?.username) ?? "";
   const { room, livekitRoom } = await resolveRoom(req.params.roomId);
 
-  // Non-restricted (or ad-hoc) rooms: immediate acceptance with a token.
-  if (!room || room.accessLevel !== "RESTRICTED") {
+  // Unregistered room: only when ad-hoc rooms are allowed. This used to hand
+  // out a token for any name at all, even with ALLOW_UNREGISTERED_ROOMS=false.
+  if (!room) {
+    if (!env.rooms.allowUnregistered) {
+      return res.status(404).json({ detail: "Room not found." });
+    }
     const token = await generateLiveKitToken({
       room: livekitRoom,
-      identity: req.user?.sub || req.user?.id || `anon-${getAnonId(req)}`,
+      identity: ownIdentity(req),
       name: displayName(req, username),
-      sources: publishableSources(room?.configuration as RoomConfiguration),
+      sources: publishableSources(undefined),
+    });
+    return res.json({
+      status: "accepted",
+      livekit: { url: env.livekit.wsUrl, room: livekitRoom, token },
+    });
+  }
+
+  // Same rule as GET /rooms/:id (lib/roomAccess). Before, only restricted
+  // rooms went through the lobby, so a guest of a trusted room got straight in.
+  const role = await getRole(room.id, req.user?.id);
+  const admin = isAdminOrOwner(role);
+  const decision = entryDecision({
+    accessLevel: room.accessLevel,
+    isAuthenticated: !!req.user,
+    role,
+  });
+  if (decision === "direct") {
+    const token = await generateLiveKitToken({
+      room: livekitRoom,
+      identity: ownIdentity(req),
+      name: displayName(req, username),
+      sources: publishableSources(
+        room.configuration as RoomConfiguration,
+        admin,
+      ),
+      isAdminOrOwner: admin,
     });
     return res.json({
       status: "accepted",
@@ -74,7 +107,10 @@ lobbyRouter.post("/:roomId/request-entry/", async (req, res) => {
   if (existing?.status === "accepted") {
     const token = await generateLiveKitToken({
       room: livekitRoom,
-      identity: `guest-${pid}`,
+      // A signed-in person admitted from the lobby keeps their own identity:
+      // as guest-… the session would be missing from their history and its
+      // recordings out of their reach.
+      identity: req.user ? ownIdentity(req) : `guest-${pid}`,
       name: existing.username,
       color: existing.color,
       sources: publishableSources(room.configuration as RoomConfiguration),
@@ -161,7 +197,9 @@ lobbyRouter.post("/:roomId/enter/", async (req, res) => {
   res.json({ message: parsed.data.allow_entry ? "accepted" : "denied" });
 });
 
-function getAnonId(req: Request): string {
+/** The caller's LiveKit identity, as GET /rooms/:id derives it. */
+function ownIdentity(req: Request): string {
+  if (req.user) return req.user.sub || req.user.id;
   if (!req.session.anonId) req.session.anonId = randomUUID();
-  return req.session.anonId;
+  return `anon-${req.session.anonId}`;
 }

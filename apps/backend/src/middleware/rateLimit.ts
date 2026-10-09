@@ -43,3 +43,17 @@ export const inviteLimiter = rateLimit({
   keyGenerator: (req) => req.user?.id ?? ipKeyGenerator(req.ip ?? ''),
   handler: tooMany,
 })
+
+/**
+ * People-search throttle: the participant picker queries as the organiser
+ * types (debounced client-side). Generous for typing, tight enough that the
+ * directory cannot be scraped by a script.
+ */
+export const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? ipKeyGenerator(req.ip ?? ''),
+  handler: tooMany,
+})
