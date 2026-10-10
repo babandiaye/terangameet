@@ -2,7 +2,7 @@ import type { RoomAccessLevel } from '../api/types'
 import { ApiError } from '@/api/ApiError'
 
 /**
- * The three access types, worded for organisers. Mirrors the server rule in
+ * The four access types, worded for organisers. Mirrors the server rule in
  * apps/backend/src/lib/roomAccess.ts — change both together.
  */
 export const ACCESS_LEVELS: {
@@ -13,23 +13,31 @@ export const ACCESS_LEVELS: {
 }[] = [
   {
     value: 'public',
-    label: 'Ouverte',
-    short: 'Ouverte',
-    description: 'Toute personne disposant du lien entre directement.',
+    label: 'Publique',
+    short: 'Publique',
+    description:
+      'Toute personne disposant du lien entre directement, en indiquant son nom.',
+  },
+  {
+    value: 'public_lobby',
+    label: 'Ouverte sur validation',
+    short: 'Sur validation',
+    description:
+      'Pas de connexion requise, l’animateur valide chaque entrée. Seuls l’organisateur et les co-animateurs entrent sans attendre.',
   },
   {
     value: 'trusted',
     label: 'Personnes de confiance',
     short: 'Confiance',
     description:
-      'Les personnes connectées avec leur compte entrent directement ; les invités sans compte attendent d’être admis.',
+      'Connexion SENID obligatoire, puis entrée directe. Les participants sont ainsi tous identifiés.',
   },
   {
     value: 'restricted',
     label: 'Restreinte',
     short: 'Restreinte',
     description:
-      'Seuls l’organisateur, les co-organisateurs et les participants prévus entrent directement ; les autres attendent d’être admis.',
+      'Connexion SENID obligatoire. Les participants prévus entrent directement ; les autres attendent d’être admis.',
   },
 ]
 

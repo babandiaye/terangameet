@@ -58,7 +58,7 @@ export const InviteesSection = ({
       </h3>
       <p className={note}>
         {room.access_level === 'restricted'
-          ? 'Ces personnes entrent sans attendre en se connectant avec cette adresse ; les autres passent par la salle d’attente.'
+          ? 'Ces personnes entrent sans attendre en se connectant avec SENID sous cette adresse ; les autres passent par la salle d’attente.'
           : 'Dans une salle restreinte, ces personnes entrent sans attendre. Ici, la liste sert surtout à envoyer l’invitation.'}{' '}
         Les co-organisateurs animent chaque séance : ils admettent, coupent les
         micros, enregistrent et gèrent cette salle.

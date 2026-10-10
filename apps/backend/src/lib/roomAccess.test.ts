@@ -1,25 +1,44 @@
 import { describe, expect, it } from 'vitest'
+import type { Role, RoomAccessLevel } from '@prisma/client'
 import { entryDecision, parseEmailList } from './roomAccess'
 
 describe('entryDecision', () => {
+  const decide = (accessLevel: RoomAccessLevel, isAuthenticated: boolean, role: Role | null = null) =>
+    entryDecision({ accessLevel, isAuthenticated, role })
+
   it('lets anyone straight into a public room', () => {
-    expect(entryDecision({ accessLevel: 'PUBLIC', isAuthenticated: false, role: null })).toBe('direct')
-    expect(entryDecision({ accessLevel: 'PUBLIC', isAuthenticated: true, role: null })).toBe('direct')
+    expect(decide('PUBLIC', false)).toBe('direct')
+    expect(decide('PUBLIC', true)).toBe('direct')
   })
 
-  it('sends guests of a trusted room to the waiting room, not signed-in users', () => {
-    expect(entryDecision({ accessLevel: 'TRUSTED', isAuthenticated: false, role: null })).toBe('lobby')
-    expect(entryDecision({ accessLevel: 'TRUSTED', isAuthenticated: true, role: null })).toBe('direct')
+  it('makes everyone wait in a public room with a lobby, signed in or not', () => {
+    expect(decide('PUBLIC_LOBBY', false)).toBe('lobby')
+    expect(decide('PUBLIC_LOBBY', true)).toBe('lobby')
+    expect(decide('PUBLIC_LOBBY', true, 'MEMBER')).toBe('lobby')
   })
 
-  it('makes everyone without a standing wait in a restricted room', () => {
-    expect(entryDecision({ accessLevel: 'RESTRICTED', isAuthenticated: false, role: null })).toBe('lobby')
-    expect(entryDecision({ accessLevel: 'RESTRICTED', isAuthenticated: true, role: null })).toBe('lobby')
+  it('asks guests of a trusted room to sign in, and lets signed-in people in', () => {
+    expect(decide('TRUSTED', false)).toBe('login')
+    expect(decide('TRUSTED', true)).toBe('direct')
   })
 
-  it('lets listed participants and organizers into a restricted room', () => {
-    for (const role of ['MEMBER', 'ADMIN', 'OWNER'] as const) {
-      expect(entryDecision({ accessLevel: 'RESTRICTED', isAuthenticated: true, role })).toBe('direct')
+  it('asks guests of a restricted room to sign in first', () => {
+    expect(decide('RESTRICTED', false)).toBe('login')
+  })
+
+  it('makes signed-in people who are not listed wait in a restricted room', () => {
+    expect(decide('RESTRICTED', true)).toBe('lobby')
+  })
+
+  it('lets listed participants into a restricted room', () => {
+    expect(decide('RESTRICTED', true, 'MEMBER')).toBe('direct')
+  })
+
+  it('always lets the organizer and co-organizers in', () => {
+    for (const level of ['PUBLIC', 'PUBLIC_LOBBY', 'TRUSTED', 'RESTRICTED'] as const) {
+      for (const role of ['ADMIN', 'OWNER'] as const) {
+        expect(decide(level, true, role)).toBe('direct')
+      }
     }
   })
 })

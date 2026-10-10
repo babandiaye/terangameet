@@ -208,6 +208,11 @@ export const Admin = () => {
               description: t('access.levels.public.description'),
             },
             {
+              value: ApiAccessLevel.PUBLIC_LOBBY,
+              label: t('access.levels.public_lobby.label'),
+              description: t('access.levels.public_lobby.description'),
+            },
+            {
               value: ApiAccessLevel.TRUSTED,
               label: t('access.levels.trusted.label'),
               description: t('access.levels.trusted.description'),

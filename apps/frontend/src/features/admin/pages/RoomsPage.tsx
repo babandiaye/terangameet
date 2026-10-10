@@ -14,9 +14,10 @@ type SortField = 'name' | 'sessions' | 'recordings' | 'date'
 type Order = 'asc' | 'desc'
 
 const accessLabel = (a: string): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' } => {
-  if (a === 'public') return { label: 'Public', tone: 'success' }
-  if (a === 'trusted') return { label: 'Approuvé', tone: 'warning' }
-  if (a === 'restricted') return { label: 'Restreint', tone: 'danger' }
+  if (a === 'public') return { label: 'Publique', tone: 'success' }
+  if (a === 'public_lobby') return { label: 'Sur validation', tone: 'neutral' }
+  if (a === 'trusted') return { label: 'Confiance', tone: 'warning' }
+  if (a === 'restricted') return { label: 'Restreinte', tone: 'danger' }
   return { label: a, tone: 'neutral' }
 }
 

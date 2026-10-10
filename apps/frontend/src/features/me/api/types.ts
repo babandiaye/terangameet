@@ -75,7 +75,11 @@ export interface MyDashboard {
 
 /* ---------------------------------------------------------------- rooms -- */
 
-export type RoomAccessLevel = 'public' | 'trusted' | 'restricted'
+export type RoomAccessLevel =
+  | 'public'
+  | 'public_lobby'
+  | 'trusted'
+  | 'restricted'
 
 /** A room the user organises (owner, or co-organizer by the participant list). */
 export interface MyRoom {

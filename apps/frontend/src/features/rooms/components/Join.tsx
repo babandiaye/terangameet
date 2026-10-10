@@ -31,8 +31,7 @@ import { useQuery } from '@tanstack/react-query'
 import { queryClient } from '@/api/queryClient'
 import { ApiLobbyStatus, type ApiRequestEntry } from '../api/requestEntry'
 import { Spinner } from '@/primitives/Spinner'
-import { ApiAccessLevel } from '../api/ApiRoom'
-import { useLoginHint } from '@/hooks/useLoginHint'
+import { redirectToLogin, requiresLogin, useSenidGate } from '../hooks/useSenidGate'
 import { useUser } from '@/features/auth/api/useUser'
 import { openPermissionsDialog } from '@/stores/permissions'
 import { useResolveInitiallyDefaultDeviceId } from '../livekit/hooks/useResolveInitiallyDefaultDeviceId'
@@ -114,6 +113,7 @@ export const Join = ({
   roomId: string
 }) => {
   const { t } = useTranslation('rooms', { keyPrefix: 'join' })
+  const { isChecking } = useSenidGate(roomId)
 
   const {
     audioEnabled,
@@ -330,16 +330,17 @@ export const Join = ({
     onAccepted: handleAccepted,
   })
 
-  const { openLoginHint } = useLoginHint()
   const { user, isLoggedIn } = useUser()
 
   const handleSubmit = async () => {
     const { data } = await refetchRoom()
 
     if (!data?.livekit) {
-      // Display a message to inform the user that by logging in, they won't have to wait for room entry approval.
-      if (data?.access_level == ApiAccessLevel.TRUSTED) {
-        openLoginHint()
+      // Signed out since the page opened (or the gate was bypassed): a trusted
+      // or restricted room has no waiting room for guests.
+      if (!isLoggedIn && requiresLogin(data?.access_level)) {
+        redirectToLogin()
+        return
       }
       startWaiting()
       return
@@ -471,6 +472,23 @@ export const Join = ({
           </Form>
         )
     }
+  }
+
+  if (isChecking) {
+    return (
+      <Screen footer={false}>
+        <div
+          className={css({
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexGrow: 1,
+          })}
+        >
+          <Spinner />
+        </div>
+      </Screen>
+    )
   }
 
   return (

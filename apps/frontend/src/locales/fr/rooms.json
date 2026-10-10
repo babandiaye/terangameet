@@ -543,16 +543,20 @@
       "type": "Type d'accès à la réunion",
       "levels": {
         "public": {
-          "label": "Ouvrir",
-          "description": "Tout le monde peut rejoindre la réunion sans autorisation."
+          "label": "Publique",
+          "description": "Toute personne disposant du lien entre directement, en indiquant son nom."
+        },
+        "public_lobby": {
+          "label": "Ouverte sur validation",
+          "description": "Pas de connexion requise, l'animateur valide chaque entrée."
         },
         "trusted": {
-          "label": "Ouvrir aux personnes de confiance",
-          "description": "Les personnes authentifiées n'ont pas à demander pour rejoindre la réunion."
+          "label": "Personnes de confiance",
+          "description": "Connexion SENID obligatoire, puis entrée directe."
         },
         "restricted": {
-          "label": "Restreindre",
-          "description": "Les personnes qui n'ont pas été invitées à la réunion doivent demander à la rejoindre."
+          "label": "Restreinte",
+          "description": "Connexion SENID obligatoire. Les participants prévus entrent directement ; les autres attendent d'être admis."
         }
       }
     },

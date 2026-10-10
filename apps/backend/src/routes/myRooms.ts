@@ -29,7 +29,7 @@ myRoomsRouter.use(requireAuth)
 
 /** A room's participant list is capped: it feeds one-click email invitations. */
 const MAX_INVITEES = 300
-const ACCESS_LEVELS = ['public', 'trusted', 'restricted'] as const
+const ACCESS_LEVELS = ['public', 'public_lobby', 'trusted', 'restricted'] as const
 
 /** Rooms the user organises: owner/admin by RoomAccess, or co-organizer by email. */
 function organisedRoomsWhere(user: { id: string; email: string | null }): Prisma.RoomWhereInput {

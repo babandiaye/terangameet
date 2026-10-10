@@ -133,7 +133,7 @@ const createSchema = z
     /** An existing room I organise; omitted → a new room titled like the meeting. */
     room_id: z.string().optional(),
     /** Access type of the new room (ignored with room_id). */
-    access_level: z.enum(['public', 'trusted', 'restricted']).optional(),
+    access_level: z.enum(['public', 'public_lobby', 'trusted', 'restricted']).optional(),
     attendees: z.array(z.string()).max(MAX_ATTENDEES).default([]),
     /** Guests who co-host: made co-organizers of the room. */
     co_hosts: z.array(z.string()).max(MAX_ATTENDEES).default([]),

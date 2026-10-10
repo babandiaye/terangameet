@@ -8,7 +8,7 @@ import { generateLiveKitToken } from "../livekit/token";
 import { participantDisplayName } from "../lib/participantName";
 import { notifyRoom } from "../livekit/notify";
 import { colorFromSeed } from "../utils/color";
-import { entryDecision } from "../lib/roomAccess";
+import { entryDecision, LOGIN_REQUIRED } from "../lib/roomAccess";
 import {
   resolveRoom,
   authorizeModeration,
@@ -37,7 +37,7 @@ function displayName(req: Request, username?: string): string {
   return participantDisplayName(req.user, username);
 }
 
-/** POST /:roomId/request-entry/ — guest asks to join a restricted room (polled). */
+/** POST /:roomId/request-entry/ — asks to join a room that has a lobby (polled). */
 lobbyRouter.post("/:roomId/request-entry/", async (req, res) => {
   const username =
     z.string().max(100).optional().parse(req.body?.username) ?? "";
@@ -61,8 +61,8 @@ lobbyRouter.post("/:roomId/request-entry/", async (req, res) => {
     });
   }
 
-  // Same rule as GET /rooms/:id (lib/roomAccess). Before, only restricted
-  // rooms went through the lobby, so a guest of a trusted room got straight in.
+  // Same rule as GET /rooms/:id (lib/roomAccess). A guest of a trusted or
+  // restricted room cannot even wait: SENID sign-in comes first.
   const role = await getRole(room.id, req.user?.id);
   const admin = isAdminOrOwner(role);
   const decision = entryDecision({
@@ -70,6 +70,7 @@ lobbyRouter.post("/:roomId/request-entry/", async (req, res) => {
     isAuthenticated: !!req.user,
     role,
   });
+  if (decision === "login") return res.status(401).json(LOGIN_REQUIRED);
   if (decision === "direct") {
     const token = await generateLiveKitToken({
       room: livekitRoom,

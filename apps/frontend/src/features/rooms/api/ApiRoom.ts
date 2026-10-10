@@ -9,6 +9,7 @@ export type ApiLiveKit = {
 
 export enum ApiAccessLevel {
   PUBLIC = 'public',
+  PUBLIC_LOBBY = 'public_lobby',
   TRUSTED = 'trusted',
   RESTRICTED = 'restricted',
 }

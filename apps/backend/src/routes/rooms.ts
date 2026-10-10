@@ -63,7 +63,7 @@ roomsRouter.post("/", requireAuth, async (req, res) => {
     // free text. Omitted by older callers, which still derive it from the name.
     slug: z.string().max(100).regex(SLUG_RE).optional(),
     callback_id: z.string().optional(),
-    access_level: z.enum(["public", "trusted", "restricted"]).optional(),
+    access_level: z.enum(["public", "public_lobby", "trusted", "restricted"]).optional(),
     configuration: z.record(z.any()).optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -167,16 +167,16 @@ roomsRouter.get("/:roomId", async (req, res) => {
   const role = await getRole(room.id, req.user?.id);
   const admin = isAdminOrOwner(role);
 
-  // Access control. No token means "wait": the join screen then asks to enter
-  // through the lobby — and, for a trusted room, suggests signing in instead.
-  // (Trusted used to answer 401 here, which the join screen read as "no room
-  // data" and sent straight to request-entry, which let guests in unasked.)
+  // Access control. No token means "not yet": the join screen sends people
+  // who must sign in to SENID first (from the access level), and the others
+  // through the lobby. request-entry enforces the same rule, so going around
+  // the join screen gets no one in.
   const decision = entryDecision({
     accessLevel: room.accessLevel,
     isAuthenticated: !!req.user,
     role,
   });
-  if (decision === "lobby") {
+  if (decision !== "direct") {
     return res.json(serializeRoom(room, { isAdministrable: false }));
   }
 
@@ -211,7 +211,7 @@ roomsRouter.patch("/:roomId", requireAuth, async (req, res) => {
 
   const schema = z.object({
     name: z.string().trim().min(1).max(ROOM_NAME_MAX).optional(),
-    access_level: z.enum(["public", "trusted", "restricted"]).optional(),
+    access_level: z.enum(["public", "public_lobby", "trusted", "restricted"]).optional(),
     configuration: z.record(z.any()).optional(),
   });
   const parsed = schema.safeParse(req.body);
