@@ -10,7 +10,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.1.6** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.1.7** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -196,6 +196,10 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.1.7** — invitations agenda : l'organisateur ne voit plus « Impossible de
+  charger l'événement » (organisateur de l'invitation = adresse TerangaMeet,
+  créateur inscrit comme ayant accepté) ; plus de bouton « Itinéraire »
+  (lien retiré du champ Lieu).
 - **2.1.6** — nouveau type d'accès « Ouverte sur validation » (sans compte,
   l'animateur ou un co-animateur valide chaque entrée) ; connexion SenID
   obligatoire pour les salles « Personnes de confiance » et « Restreinte »,
