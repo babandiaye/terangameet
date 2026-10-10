@@ -23,14 +23,40 @@ export function attendedSessionsWhere(user: Pick<User, 'id' | 'sub'>): Prisma.Me
 }
 
 /**
- * Recordings the user may read: those they started (RecordingAccess) plus those
- * captured during a session they attended.
+ * A user's standing on rooms, as far as recordings go — loaded once per request
+ * by recordingStanding(), so the rule itself stays pure and testable.
  */
-export function readableRecordingsWhere(user: Pick<User, 'id' | 'sub'>): Prisma.RecordingWhereInput {
+export interface RecordingStanding {
+  /** Rooms they own or co-organize: every recording, present or not. */
+  hostedRoomIds: string[]
+  /**
+   * Rooms where they are a listed participant, and since when: recordings made
+   * from that date on, so someone added late does not get the whole history.
+   */
+  listedSince: { roomId: string; since: Date }[]
+}
+
+export const NO_STANDING: RecordingStanding = { hostedRoomIds: [], listedSince: [] }
+
+/**
+ * Recordings the user may read:
+ *   - those they started (RecordingAccess);
+ *   - those captured during a session they attended;
+ *   - every recording of a room they own or co-organize, even when absent;
+ *   - those of a room where they are a listed participant, made after they were
+ *     added — so a staff member who missed the meeting can catch up.
+ * Guests without an account never qualify: they have no lasting identity.
+ */
+export function readableRecordingsWhere(
+  user: Pick<User, 'id' | 'sub'>,
+  standing: RecordingStanding = NO_STANDING
+): Prisma.RecordingWhereInput {
   return {
     OR: [
       { accesses: { some: { userId: user.id } } },
       { session: attendedSessionsWhere(user) },
+      ...(standing.hostedRoomIds.length ? [{ roomId: { in: standing.hostedRoomIds } }] : []),
+      ...standing.listedSince.map((l) => ({ roomId: l.roomId, createdAt: { gte: l.since } })),
     ],
   }
 }
@@ -41,9 +67,42 @@ export function readableRecordingsWhere(user: Pick<User, 'id' | 'sub'>): Prisma.
  * links to it. The personal list (GET /recordings/) stays strictly personal.
  */
 export function recordingVisibleTo(
-  user: Pick<User, 'id' | 'sub' | 'isStaff'>
+  user: Pick<User, 'id' | 'sub' | 'isStaff'>,
+  standing: RecordingStanding = NO_STANDING
 ): Prisma.RecordingWhereInput {
-  return user.isStaff ? {} : readableRecordingsWhere(user)
+  return user.isStaff ? {} : readableRecordingsWhere(user, standing)
+}
+
+/**
+ * Load the rooms that open recordings to this user beyond attendance. Owners and
+ * co-organizers come from RoomAccess (OWNER/ADMIN) and from the participant list
+ * (co-organizer flag); listed participants from the list, matched on the
+ * account email as getRole() does.
+ */
+export async function recordingStanding(user: Pick<User, 'id' | 'email'>): Promise<RecordingStanding> {
+  const email = user.email?.toLowerCase()
+  const [accesses, invitees] = await Promise.all([
+    prisma.roomAccess.findMany({
+      where: { userId: user.id, role: { in: ['OWNER', 'ADMIN'] } },
+      select: { roomId: true },
+    }),
+    email
+      ? prisma.roomInvitee.findMany({
+          where: { email },
+          select: { roomId: true, isCoOrganizer: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+  ])
+  const hosted = new Set([
+    ...accesses.map((a) => a.roomId),
+    ...invitees.filter((i) => i.isCoOrganizer).map((i) => i.roomId),
+  ])
+  return {
+    hostedRoomIds: [...hosted],
+    listedSince: invitees
+      .filter((i) => !hosted.has(i.roomId))
+      .map((i) => ({ roomId: i.roomId, since: i.createdAt })),
+  }
 }
 
 /** Display title of a session, falling back to the room name then the LiveKit name. */

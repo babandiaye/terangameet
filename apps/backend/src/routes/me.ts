@@ -9,6 +9,7 @@ import {
   attendanceTotals,
   attendedSessionsWhere,
   readableRecordingsWhere,
+  recordingStanding,
   sessionTitle,
   userIdentities,
 } from '../services/userSpace'
@@ -48,7 +49,7 @@ meRouter.get('/dashboard/', async (req, res) => {
 
   const [totals, recordings, recent] = await Promise.all([
     attendanceTotals(user),
-    prisma.recording.count({ where: readableRecordingsWhere(user) }),
+    prisma.recording.count({ where: readableRecordingsWhere(user, await recordingStanding(user)) }),
     prisma.meetingSession.findMany({
       where,
       orderBy: { startedAt: 'desc' },
@@ -186,7 +187,7 @@ meRouter.get('/meetings/:id/', async (req, res) => {
 meRouter.get('/recordings/', async (req, res) => {
   const user = req.user!
   const { page, pageSize, skip, take } = paging(req.query)
-  const where = readableRecordingsWhere(user)
+  const where = readableRecordingsWhere(user, await recordingStanding(user))
 
   const [count, recordings] = await Promise.all([
     prisma.recording.count({ where }),

@@ -36,7 +36,8 @@ export const MyRecordingsPage = () => {
           marginTop: '-0.5rem',
         })}
       >
-        Les enregistrements des réunions auxquelles vous avez participé.
+        Les enregistrements des réunions auxquelles vous avez participé ou étiez
+        prévu, et tous ceux des salles que vous organisez.
       </p>
 
       {isLoading ? (

@@ -23,7 +23,11 @@ import {
   serializeRoom,
 } from "../services/rooms";
 import { currentSessionId } from "../services/meetingSessions";
-import { readableRecordingsWhere, recordingVisibleTo } from "../services/userSpace";
+import {
+  readableRecordingsWhere,
+  recordingStanding,
+  recordingVisibleTo,
+} from "../services/userSpace";
 
 /** Room-scoped recording/subtitle actions, mounted under /api/v1.0/rooms. */
 export const recordingRoomRouter = Router();
@@ -238,7 +242,10 @@ function serializeRecording(r: import("@prisma/client").Recording) {
 
 recordingsRouter.get("/", async (req, res) => {
   const { page, pageSize, skip, take } = paging(req.query);
-  const where = readableRecordingsWhere(req.user!);
+  const where = readableRecordingsWhere(
+    req.user!,
+    await recordingStanding(req.user!),
+  );
   const [count, recordings] = await Promise.all([
     prisma.recording.count({ where }),
     prisma.recording.findMany({
@@ -255,7 +262,10 @@ recordingsRouter.get("/", async (req, res) => {
 
 recordingsRouter.get("/:id", async (req, res) => {
   const r = await prisma.recording.findFirst({
-    where: { id: req.params.id, ...recordingVisibleTo(req.user!) },
+    where: {
+      id: req.params.id,
+      ...recordingVisibleTo(req.user!, await recordingStanding(req.user!)),
+    },
   });
   if (!r) return res.status(404).json({ detail: "Enregistrement introuvable." });
   res.json(serializeRecording(r));
@@ -270,7 +280,10 @@ recordingsRouter.get("/:id", async (req, res) => {
  */
 recordingsRouter.get("/:id/media/", async (req, res) => {
   const r = await prisma.recording.findFirst({
-    where: { id: req.params.id, ...recordingVisibleTo(req.user!) },
+    where: {
+      id: req.params.id,
+      ...recordingVisibleTo(req.user!, await recordingStanding(req.user!)),
+    },
   });
   if (!r) return res.status(404).json({ detail: "Enregistrement introuvable." });
 
