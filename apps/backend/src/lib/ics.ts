@@ -9,6 +9,8 @@
 export interface IcsPerson {
   email: string
   name?: string | null
+  /** Already said yes (the meeting's creator): no Yes / No / Maybe to answer. */
+  accepted?: boolean
 }
 
 export interface IcsEvent {
@@ -23,7 +25,10 @@ export interface IcsEvent {
   end: Date
   summary: string
   description?: string
-  /** The meeting link: shown as location and appended to the description. */
+  /**
+   * The meeting link, appended to the description and given as URL. Never as
+   * LOCATION: Gmail reads that as a street address and offers « Itinéraire ».
+   */
   url: string
   organizer: IcsPerson
   attendees: IcsPerson[]
@@ -94,14 +99,15 @@ export function buildIcs(event: IcsEvent): string {
     `DTEND:${icsDate(event.end)}`,
     `SUMMARY:${escapeText(event.summary)}`,
     `DESCRIPTION:${escapeText(description)}`,
-    `LOCATION:${escapeText(event.url)}`,
     `URL:${event.url}`,
     `STATUS:${event.method === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED'}`,
     'TRANSP:OPAQUE',
     `ORGANIZER${cn(event.organizer.name)}:mailto:${event.organizer.email}`,
     ...event.attendees.map(
       (a) =>
-        `ATTENDEE${cn(a.name)};ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${a.email}`
+        `ATTENDEE${cn(a.name)};ROLE=REQ-PARTICIPANT;${
+          a.accepted ? 'PARTSTAT=ACCEPTED;RSVP=FALSE' : 'PARTSTAT=NEEDS-ACTION;RSVP=TRUE'
+        }:mailto:${a.email}`
     ),
     'END:VEVENT',
     'END:VCALENDAR',

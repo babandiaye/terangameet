@@ -52,6 +52,16 @@ describe('foldLine', () => {
 })
 
 describe('buildIcs', () => {
+  it('marks an attendee who already accepted, with nothing to answer', () => {
+    const ics = buildIcs({
+      ...base,
+      attendees: [{ email: 'papa@unchk.edu.sn', name: 'Papa NDIAYE', accepted: true }, ...base.attendees],
+    })
+    const unfolded = ics.replace(/\r\n /g, '')
+    expect(unfolded).toContain('ATTENDEE;CN=Papa NDIAYE;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:papa@unchk.edu.sn')
+    expect(unfolded).toContain('PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:awa@unchk.edu.sn')
+  })
+
   it('produces a REQUEST invitation calendars accept', () => {
     const ics = buildIcs(base)
     expect(ics.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true)
@@ -66,7 +76,6 @@ describe('buildIcs', () => {
       'DTEND:20261015T103000Z',
       'SUMMARY:Master LEPRAD',
       'STATUS:CONFIRMED',
-      'LOCATION:https://terangameet.unchk.sn/xrz-hnrt-nej',
       'URL:https://terangameet.unchk.sn/xrz-hnrt-nej',
       'ORGANIZER;CN=Papa NDIAYE:mailto:papa@unchk.edu.sn',
     ]) {
@@ -76,6 +85,9 @@ describe('buildIcs', () => {
     const unfolded = ics.replace(/\r\n /g, '')
     expect(unfolded).toContain('ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:awa@unchk.edu.sn')
     expect(unfolded).toContain('ATTENDEE;CN=Moussa Diop;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:moussa@unchk.edu.sn')
+    // No LOCATION: Gmail would offer directions (« Itinéraire ») to a link.
+    expect(ics).not.toContain('LOCATION:')
+    expect(unfolded).toContain('Rejoindre la réunion : https://terangameet.unchk.sn/xrz-hnrt-nej')
     // Every line ends with CRLF, none with a bare LF.
     expect(ics.replace(/\r\n/g, '')).not.toContain('\n')
   })

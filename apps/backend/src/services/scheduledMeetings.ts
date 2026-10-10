@@ -90,6 +90,13 @@ export async function visibleMeeting(id: string, user: User): Promise<MeetingWit
 /**
  * Email the invitation (or its update / cancellation) to the given people.
  * The organiser is always included, so the event lands in their calendar too.
+ *
+ * The calendar ORGANIZER is TerangaMeet's sending address, with the creator
+ * listed as an attendee who already accepted. When the organizer is a Google
+ * account (all of @unchk.edu.sn), Gmail ignores the attached .ics and looks
+ * the event up in that account's Google Calendar — where TerangaMeet never
+ * created it — and shows the creator « Impossible de charger l'événement ».
+ * Guests' Yes / No / Maybe replies therefore go to that address, unread.
  * A few at a time — up to 200 guests must not open 200 SMTP sessions at once.
  */
 export async function sendInvitations(
@@ -110,11 +117,13 @@ export async function sendInvitations(
     summary: m.title,
     description: m.description,
     url: roomUrl(m.room),
-    organizer: { email: organizerEmail, name: m.organizer.fullName },
-    attendees: m.attendees.map((a) => ({
-      email: a.email,
-      name: names.get(a.email),
-    })),
+    organizer: { email: env.mail.from, name: `${organizerName} via TerangaMeet` },
+    attendees: [
+      { email: organizerEmail, name: m.organizer.fullName, accepted: true },
+      ...m.attendees
+        .filter((a) => a.email !== organizerEmail)
+        .map((a) => ({ email: a.email, name: names.get(a.email) })),
+    ],
   })
   const content = {
     kind,
