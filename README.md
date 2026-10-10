@@ -10,7 +10,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.1.5** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.1.6** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -149,13 +149,17 @@ SERVE_FRONTEND=true NODE_ENV=production pnpm start
 
 ## Accès à une salle
 
-| Type | Entre directement | Passe par la salle d'attente |
-|---|---|---|
-| Ouverte | tout le monde | — |
-| Personnes de confiance | les personnes connectées | les invités sans compte |
-| Restreinte | propriétaire, co-organisateurs, participants prévus | tous les autres |
+| Type | Connexion SenID | Entre directement | Passe par la salle d'attente |
+|---|---|---|---|
+| Publique | non | tout le monde (avec son nom) | — |
+| Ouverte sur validation | non | propriétaire, co-organisateurs | tous les autres, participants prévus compris |
+| Personnes de confiance | **obligatoire** | les personnes connectées | — |
+| Restreinte | **obligatoire** | propriétaire, co-organisateurs, participants prévus | les autres comptes connectés |
 
-Règle unique, testée : `apps/backend/src/lib/roomAccess.ts`. Les participants
+Sans compte, une salle « Personnes de confiance » ou « Restreinte » renvoie
+d'abord vers SenID, puis ramène sur le lien de la réunion ; le serveur refuse
+aussi la salle d'attente aux invités sans compte. Règle unique, testée :
+`apps/backend/src/lib/roomAccess.ts`. Les participants
 prévus sont reconnus par l'email de leur compte SenID. Un code de salle
 inexistant est refusé (`ALLOW_UNREGISTERED_ROOMS=false`).
 
@@ -192,6 +196,10 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.1.6** — nouveau type d'accès « Ouverte sur validation » (sans compte,
+  l'animateur ou un co-animateur valide chaque entrée) ; connexion SenID
+  obligatoire pour les salles « Personnes de confiance » et « Restreinte »,
+  avec redirection automatique depuis le lien.
 - **2.1.5** — sauvegardes nocturnes de la base et de la configuration,
   vérifiées par restauration, visibles dans l'état des services
   (`docs/SAUVEGARDES.md`) ; sonde SMTP fiabilisée.
