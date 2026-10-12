@@ -10,7 +10,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.1.8** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.1.9** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -42,8 +42,11 @@ En plus du périmètre de Meet :
   réunion pour tout le monde, restriction micro / caméra / partage d'écran.
 - **Enregistrements** : stockés dans un bucket MinIO privé, lus sur place ou
   téléchargés via le backend (contrôle d'accès en base), purge automatique
-  configurable (1 mois à 1 an).
-- **Invitations par email** (SMTP) depuis la fenêtre de partage.
+  configurable (1 mois à 1 an) — **désactivée en production pour le moment**
+  (`PURGE_RECORDINGS_ENABLED=false`) ; la durée choisie est gardée en base.
+- **Invitations par email** (SMTP) depuis la fenêtre de partage, réservées à
+  l'organisateur et aux co-organisateurs ; 500 destinataires par jour et par
+  compte (`INVITE_DAILY_RECIPIENT_QUOTA`, administrateurs exemptés).
 - **Notes privées** par participant, sauvegardées automatiquement, export `.txt`.
 - **Tableau de bord analytique** en réunion (temps de parole, présence,
   messages, mains levées), export PDF — réservé aux animateurs.
@@ -196,6 +199,11 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.1.9** — correctifs de l'audit : invitations par email réservées aux
+  organisateurs et quota quotidien de destinataires ; connexions SMTP
+  réutilisées avec délais (fin des 504 à l'envoi) ; durée de conservation des
+  enregistrements en base au lieu de Redis ; secrets de production retirés du
+  `.env` de développement.
 - **2.1.8** — enregistrements visibles par les absents : propriétaire et
   co-organisateurs voient tous ceux de leur salle ; les participants prévus,
   ceux réalisés depuis leur ajout (invités sans compte exclus).
