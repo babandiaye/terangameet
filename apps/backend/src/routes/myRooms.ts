@@ -14,6 +14,7 @@ import { sendMail } from '../lib/mailer'
 import { getRole } from '../services/rooms'
 import { generateRoomSlug } from '../utils/slug'
 import { quotaExceeded, reserveInvitations } from '../services/inviteQuota'
+import { removeRoomInvitees } from '../services/roomInvitees'
 import { buildHtml, buildText } from './invite'
 
 /**
@@ -270,7 +271,8 @@ myRoomsRouter.delete('/:roomId/invitees/:inviteeId/', async (req, res) => {
   if (invitee.isCoOrganizer && found.role !== 'OWNER') {
     return res.status(403).json({ detail: 'Seul le propriétaire peut retirer un co-organisateur.' })
   }
-  await prisma.roomInvitee.delete({ where: { id: invitee.id } })
+  // Off the list, but the recordings made while listed stay theirs.
+  await removeRoomInvitees(found.room.id, [invitee.email])
   res.json({ invitees: await serializeInvitees(found.room.id) })
 })
 

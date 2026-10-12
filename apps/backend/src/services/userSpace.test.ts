@@ -21,17 +21,27 @@ describe('readableRecordingsWhere', () => {
   })
 
   it('opens every recording of a room the user owns or co-organizes', () => {
-    const where = readableRecordingsWhere(user, { hostedRoomIds: ['r1', 'r2'], listedSince: [] })
+    const where = readableRecordingsWhere(user, { hostedRoomIds: ['r1', 'r2'], listedSince: [], listedPeriods: [] })
     expect(where.OR).toContainEqual({ roomId: { in: ['r1', 'r2'] } })
   })
 
   it('opens recordings made after a listed participant was added, not before', () => {
-    const where = readableRecordingsWhere(user, { hostedRoomIds: [], listedSince: [{ roomId: 'r3', since }] })
+    const where = readableRecordingsWhere(user, { hostedRoomIds: [], listedSince: [{ roomId: 'r3', since }], listedPeriods: [] })
     expect(where.OR).toContainEqual({ roomId: 'r3', createdAt: { gte: since } })
   })
 
+  it('keeps the recordings made while a removed participant was listed', () => {
+    const until = new Date('2026-10-05T08:00:00Z')
+    const where = readableRecordingsWhere(user, {
+      hostedRoomIds: [],
+      listedSince: [],
+      listedPeriods: [{ roomId: 'r4', since, until }],
+    })
+    expect(where.OR).toContainEqual({ roomId: 'r4', createdAt: { gte: since, lt: until } })
+  })
+
   it('applies the same standing when opening a recording by id', () => {
-    const standing = { hostedRoomIds: ['r1'], listedSince: [] }
+    const standing = { hostedRoomIds: ['r1'], listedSince: [], listedPeriods: [] }
     expect(recordingVisibleTo(user, standing)).toEqual(readableRecordingsWhere(user, standing))
   })
 })

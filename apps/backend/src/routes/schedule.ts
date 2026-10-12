@@ -7,6 +7,7 @@ import { logger } from '../lib/logger'
 import { requireAuth } from '../auth/middleware'
 import { scheduleLimiter, searchLimiter } from '../middleware/rateLimit'
 import { quotaExceeded, reserveInvitations } from '../services/inviteQuota'
+import { releaseMeetingGuests } from '../services/roomInvitees'
 import { parseEmailList } from '../lib/roomAccess'
 import { coHostPlan } from '../lib/coHosts'
 import { getRole } from '../services/rooms'
@@ -346,6 +347,9 @@ scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
     promoted: hosts.promoted,
     demoted: hosts.demoted,
   })
+  // Removed guests lose their place in the room, not the recordings made
+  // while they were invited (services/roomInvitees.ts).
+  await releaseMeetingGuests(updated.roomId, updated.id, removed)
   const mail: MailReport = updated.googleEventId
     ? { sent: guests.length, failed: [], via: 'google' }
     : { ...(await sendInvitations(updated, 'update', guests)), via: 'email' }
@@ -380,6 +384,11 @@ scheduleRouter.delete('/:id/', async (req, res) => {
         )),
         via: 'email',
       }
+  await releaseMeetingGuests(
+    cancelled.roomId,
+    cancelled.id,
+    cancelled.attendees.map((a) => a.email)
+  )
   logger.info(`[schedule] ${user.email} cancelled ${m.id} via ${mail.via}`)
   res.json({ mail })
 })

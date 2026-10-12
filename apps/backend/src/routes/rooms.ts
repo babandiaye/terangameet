@@ -82,6 +82,7 @@ roomsRouter.post("/", requireAuth, async (req, res) => {
   // Two concurrent creates can both see "no room"; the unique slug constraint
   // makes the loser fail with P2002 — we then just re-fetch the winner's room.
   let room = await prisma.room.findUnique({ where: { slug } });
+  let created = false;
   if (!room) {
     try {
       room = await prisma.room.create({
@@ -95,6 +96,7 @@ roomsRouter.post("/", requireAuth, async (req, res) => {
           accesses: { create: { userId: req.user!.id, role: "OWNER" } },
         },
       });
+      created = true;
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -108,6 +110,21 @@ roomsRouter.post("/", requireAuth, async (req, res) => {
 
   const role = await getRole(room.id, req.user!.id);
   const admin = isAdminOrOwner(role);
+
+  // Someone else's room, reached by its link: the same access rule as
+  // GET /rooms/:id. Handing a token here let anyone with an account skip the
+  // waiting room of a restricted room just by « creating » it again.
+  if (!created) {
+    const decision = entryDecision({
+      accessLevel: room.accessLevel,
+      isAuthenticated: true,
+      role,
+    });
+    if (decision !== "direct") {
+      return res.json(serializeRoom(room, { isAdministrable: false }));
+    }
+  }
+
   const token = await generateLiveKitToken({
     room: room.id,
     identity: participantIdentity(req),

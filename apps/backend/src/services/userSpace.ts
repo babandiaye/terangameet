@@ -34,9 +34,14 @@ export interface RecordingStanding {
    * from that date on, so someone added late does not get the whole history.
    */
   listedSince: { roomId: string; since: Date }[]
+  /**
+   * Past stays on a list they were since taken off: the recordings made while
+   * they were listed remain theirs (room_invitee_periods).
+   */
+  listedPeriods: { roomId: string; since: Date; until: Date }[]
 }
 
-export const NO_STANDING: RecordingStanding = { hostedRoomIds: [], listedSince: [] }
+export const NO_STANDING: RecordingStanding = { hostedRoomIds: [], listedSince: [], listedPeriods: [] }
 
 /**
  * Recordings the user may read:
@@ -44,7 +49,8 @@ export const NO_STANDING: RecordingStanding = { hostedRoomIds: [], listedSince: 
  *   - those captured during a session they attended;
  *   - every recording of a room they own or co-organize, even when absent;
  *   - those of a room where they are a listed participant, made after they were
- *     added — so a staff member who missed the meeting can catch up.
+ *     added — so a staff member who missed the meeting can catch up;
+ *   - those made while they were listed, once taken off the list.
  * Guests without an account never qualify: they have no lasting identity.
  */
 export function readableRecordingsWhere(
@@ -57,6 +63,7 @@ export function readableRecordingsWhere(
       { session: attendedSessionsWhere(user) },
       ...(standing.hostedRoomIds.length ? [{ roomId: { in: standing.hostedRoomIds } }] : []),
       ...standing.listedSince.map((l) => ({ roomId: l.roomId, createdAt: { gte: l.since } })),
+      ...standing.listedPeriods.map((l) => ({ roomId: l.roomId, createdAt: { gte: l.since, lt: l.until } })),
     ],
   }
 }
@@ -81,7 +88,7 @@ export function recordingVisibleTo(
  */
 export async function recordingStanding(user: Pick<User, 'id' | 'email'>): Promise<RecordingStanding> {
   const email = user.email?.toLowerCase()
-  const [accesses, invitees] = await Promise.all([
+  const [accesses, invitees, periods] = await Promise.all([
     prisma.roomAccess.findMany({
       where: { userId: user.id, role: { in: ['OWNER', 'ADMIN'] } },
       select: { roomId: true },
@@ -90,6 +97,12 @@ export async function recordingStanding(user: Pick<User, 'id' | 'email'>): Promi
       ? prisma.roomInvitee.findMany({
           where: { email },
           select: { roomId: true, isCoOrganizer: true, createdAt: true },
+        })
+      : Promise.resolve([]),
+    email
+      ? prisma.roomInviteePeriod.findMany({
+          where: { email },
+          select: { roomId: true, since: true, until: true },
         })
       : Promise.resolve([]),
   ])
@@ -102,6 +115,7 @@ export async function recordingStanding(user: Pick<User, 'id' | 'email'>): Promi
     listedSince: invitees
       .filter((i) => !hosted.has(i.roomId))
       .map((i) => ({ roomId: i.roomId, since: i.createdAt })),
+    listedPeriods: periods.filter((p) => !hosted.has(p.roomId)),
   }
 }
 

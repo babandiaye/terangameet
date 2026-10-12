@@ -114,11 +114,12 @@ model Room {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  accesses   RoomAccess[]
-  recordings Recording[]
-  sessions   MeetingSession[]
-  invitees   RoomInvitee[]
-  scheduled  ScheduledMeeting[]
+  accesses       RoomAccess[]
+  recordings     Recording[]
+  sessions       MeetingSession[]
+  invitees       RoomInvitee[]
+  inviteePeriods RoomInviteePeriod[]
+  scheduled      ScheduledMeeting[]
 
   @@map("rooms")
 }
@@ -143,6 +144,22 @@ model RoomInvitee {
   @@unique([roomId, email])
   @@index([email])
   @@map("room_invitees")
+}
+
+/// A past stay on a room's participant list: written when someone is removed
+/// (by hand, from a meeting, or by its cancellation). They lose their place in
+/// the room, but keep the recordings made while they were listed.
+model RoomInviteePeriod {
+  id     String   @id @default(uuid())
+  room   Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId String
+  /// Lowercased, as in room_invitees.
+  email  String
+  since  DateTime
+  until  DateTime @default(now())
+
+  @@index([email])
+  @@map("room_invitee_periods")
 }
 
 /// A real meeting occurrence, tracked from LiveKit room_started/room_finished
