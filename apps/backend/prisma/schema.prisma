@@ -138,6 +138,11 @@ model RoomInvitee {
   isCoOrganizer Boolean  @default(false)
   invitedBy     User?    @relation("RoomInviteeInviter", fields: [invitedById], references: [id], onDelete: SetNull)
   invitedById   String?
+  /// The scheduled meeting that put them on the list, if any. Only that
+  /// meeting may take them off again (guest removed, meeting cancelled):
+  /// someone added by hand, or already listed, is never removed by a meeting.
+  addedByMeeting   ScheduledMeeting? @relation(fields: [addedByMeetingId], references: [id], onDelete: SetNull)
+  addedByMeetingId String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -341,7 +346,8 @@ model ScheduledMeeting {
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 
-  attendees MeetingAttendee[]
+  attendees     MeetingAttendee[]
+  roomInvitees  RoomInvitee[]
 
   @@index([organizerId, startsAt])
   @@index([startsAt])

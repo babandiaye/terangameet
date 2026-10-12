@@ -131,7 +131,7 @@ export const env = {
 
   // Automatic purge of old recordings. When disabled the whole feature (and its
   // admin UI) is hidden. Period is one of 1m | 3m | 6m | 1y (default 6m); the
-  // admin can override it at runtime (persisted in Redis).
+  // admin can override it at runtime (kept in app_settings).
   purge: {
     enabled: bool('PURGE_RECORDINGS_ENABLED', false),
     defaultPeriod: str('PURGE_RECORDINGS_PERIOD', '6m'),

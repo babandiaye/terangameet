@@ -168,11 +168,14 @@ export async function sendInvitations(
 export async function syncRoomPeople(
   roomId: string,
   invitedById: string,
+  meetingId: string,
   change: { guests: string[]; promoted: string[]; demoted: string[] }
 ) {
   if (change.guests.length) {
+    // skipDuplicates: someone already listed keeps their row — and its origin,
+    // so this meeting will not take them off later (services/roomInvitees.ts).
     await prisma.roomInvitee.createMany({
-      data: change.guests.map((email) => ({ roomId, email, invitedById })),
+      data: change.guests.map((email) => ({ roomId, email, invitedById, addedByMeetingId: meetingId })),
       skipDuplicates: true,
     })
   }

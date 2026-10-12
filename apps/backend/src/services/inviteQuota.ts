@@ -38,3 +38,13 @@ export async function reserveInvitations(
   }
   return { ok: true }
 }
+
+/**
+ * Give back a reservation whose mails will not go out (the change was refused
+ * by Google, or failed before sending). Best effort: at worst the account's
+ * budget for the day is a little smaller.
+ */
+export async function releaseInvitations(user: Pick<User, 'id' | 'isStaff'>, count: number): Promise<void> {
+  if (user.isStaff || count <= 0 || env.mail.dailyRecipientQuota <= 0) return
+  await redis.decrby(quotaKey(user.id, new Date()), count).catch(() => undefined)
+}

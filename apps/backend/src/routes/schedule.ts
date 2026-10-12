@@ -6,7 +6,7 @@ import { env } from '../config/env'
 import { logger } from '../lib/logger'
 import { requireAuth } from '../auth/middleware'
 import { scheduleLimiter, searchLimiter } from '../middleware/rateLimit'
-import { quotaExceeded, reserveInvitations } from '../services/inviteQuota'
+import { quotaExceeded, releaseInvitations, reserveInvitations } from '../services/inviteQuota'
 import { releaseMeetingGuests } from '../services/roomInvitees'
 import { parseEmailList } from '../lib/roomAccess'
 import { coHostPlan } from '../lib/coHosts'
@@ -171,6 +171,11 @@ scheduleRouter.post('/', scheduleLimiter, async (req, res) => {
   // Taken last among the checks, so a refused request does not spend budget.
   const quota = await reserveInvitations(user, guests.length)
   if (!quota.ok) return res.status(429).json(quotaExceeded(quota.remaining))
+  // Nothing is sent if the writes below fail: give the reservation back.
+  const refund = (err: unknown) => {
+    void releaseInvitations(user, guests.length)
+    throw err
+  }
   if (!room) {
     room = await prisma.room.create({
       data: {
@@ -179,7 +184,7 @@ scheduleRouter.post('/', scheduleLimiter, async (req, res) => {
         accessLevel: (body.access_level ?? env.rooms.defaultAccessLevel).toUpperCase() as Room['accessLevel'],
         accesses: { create: { userId: user.id, role: 'OWNER' } },
       },
-    })
+    }).catch(refund)
   }
 
   const created = await prisma.scheduledMeeting.create({
@@ -199,8 +204,8 @@ scheduleRouter.post('/', scheduleLimiter, async (req, res) => {
       },
     },
     include: withRelations,
-  })
-  await syncRoomPeople(room.id, user.id, {
+  }).catch(refund)
+  await syncRoomPeople(room.id, user.id, created.id, {
     guests,
     promoted: hosts.coHosts,
     demoted: [],
@@ -242,7 +247,7 @@ const updateSchema = z.object({
   co_hosts: z.array(z.string()).max(MAX_ATTENDEES).optional(),
 })
 
-/** PATCH /:id/ — change a meeting (organiser only); guests receive the update. */
+/** PATCH /:id/ — change a meeting (organiser only); guests are emailed when the date or time changes. */
 scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
   const user = req.user!
   const m = await visibleMeeting(req.params.id, user)
@@ -278,9 +283,15 @@ scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
   ) {
     return coHostDenied(res)
   }
-  // Only newly added guests count: updates to people already invited are not
-  // new invitations.
-  const quota = await reserveInvitations(user, added.length)
+  // Everyone is emailed again only when the date or time changes; a new title
+  // or description alone reaches just the newly added guests. Each mail that
+  // goes out counts against the daily quota — repeated small edits used to
+  // re-send the whole list for free, a spam relay from the university address.
+  const slotChanged =
+    slot.data.starts_at.getTime() !== m.startsAt.getTime() ||
+    slot.data.ends_at.getTime() !== m.endsAt.getTime()
+  const toNotify = slotChanged ? guests : added
+  const quota = await reserveInvitations(user, toNotify.length)
   if (!quota.ok) return res.status(429).json(quotaExceeded(quota.remaining))
 
   // A meeting living in Google Calendar is changed there first: if Google
@@ -301,6 +312,7 @@ scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
         })
       )
     } catch (err) {
+      await releaseInvitations(user, toNotify.length)
       return googleFailure(res, err)
     }
   } else if (removed.length) {
@@ -342,7 +354,7 @@ scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
       include: withRelations,
     })
   })
-  await syncRoomPeople(updated.roomId, user.id, {
+  await syncRoomPeople(updated.roomId, user.id, updated.id, {
     guests: added,
     promoted: hosts.promoted,
     demoted: hosts.demoted,
@@ -351,17 +363,26 @@ scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
   // while they were invited (services/roomInvitees.ts).
   await releaseMeetingGuests(updated.roomId, updated.id, removed)
   const mail: MailReport = updated.googleEventId
-    ? { sent: guests.length, failed: [], via: 'google' }
-    : { ...(await sendInvitations(updated, 'update', guests)), via: 'email' }
+    ? { sent: toNotify.length, failed: [], via: 'google' }
+    : slotChanged
+      ? { ...(await sendInvitations(updated, 'update', guests)), via: 'email' }
+      : added.length
+        ? { ...(await sendInvitations(updated, 'new', added)), via: 'email' }
+        : { sent: 0, failed: [], via: 'email' }
   res.json({ meeting: await serializeMeeting(updated, user), mail })
 })
 
 /** DELETE /:id/ — cancel (organiser only): the event leaves every calendar. */
-scheduleRouter.delete('/:id/', async (req, res) => {
+scheduleRouter.delete('/:id/', scheduleLimiter, async (req, res) => {
   const user = req.user!
   const m = await visibleMeeting(req.params.id, user)
   if (!m || m.organizerId !== user.id) return res.status(404).json({ detail: 'Réunion introuvable.' })
   if (m.status === 'CANCELLED') return res.json({ mail: { sent: 0, failed: [], via: 'email' } })
+  // A meeting that already took place is history: cancelling it would only
+  // email everyone and take its guests off the room.
+  if (m.endsAt.getTime() < Date.now()) {
+    return res.status(409).json({ detail: 'Cette réunion a déjà eu lieu : elle ne peut plus être annulée.' })
+  }
   if (m.googleEventId) {
     try {
       await googleEvents.remove(user.id, m.googleEventId)

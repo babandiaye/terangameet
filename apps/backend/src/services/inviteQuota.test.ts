@@ -16,7 +16,7 @@ vi.mock('../lib/redis', () => ({
 }))
 vi.mock('../config/env', () => ({ env: { mail: { dailyRecipientQuota: 10 } } }))
 
-const { quotaKey, reserveInvitations } = await import('./inviteQuota')
+const { quotaKey, releaseInvitations, reserveInvitations } = await import('./inviteQuota')
 const member = { id: 'u1', isStaff: false }
 
 describe('reserveInvitations', () => {
@@ -35,6 +35,13 @@ describe('reserveInvitations', () => {
     await reserveInvitations(member, 8)
     expect(await reserveInvitations(member, 5)).toEqual({ ok: false, remaining: 2 })
     expect(await reserveInvitations(member, 2)).toEqual({ ok: true })
+  })
+
+  it('gives a reservation back when its mails will not go out', async () => {
+    await reserveInvitations(member, 10)
+    await releaseInvitations(member, 4)
+    expect(await reserveInvitations(member, 4)).toEqual({ ok: true })
+    expect(await reserveInvitations(member, 1)).toEqual({ ok: false, remaining: 0 })
   })
 
   it('does not limit platform administrators', async () => {

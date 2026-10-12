@@ -421,6 +421,13 @@ const ScheduleForm = ({
         </p>
       )}
 
+      {meeting && (
+        <p className={note}>
+          Les invités reçoivent un email si la date ou l’heure change ; les
+          nouveaux invités reçoivent leur invitation.
+        </p>
+      )}
+
       {save.isError && (
         <p
           role="alert"
@@ -441,7 +448,7 @@ const ScheduleForm = ({
           {save.isPending
             ? 'Envoi des invitations…'
             : meeting
-              ? 'Enregistrer et prévenir les invités'
+              ? 'Enregistrer les modifications'
               : guests.length
                 ? 'Planifier et inviter'
                 : 'Planifier'}
