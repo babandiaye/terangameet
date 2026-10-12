@@ -3,7 +3,15 @@ import { env } from '../config/env'
 
 let transporter: Transporter | null = null
 
-/** Lazily-built SMTP transport (singleton). Configured from env.mail. */
+/**
+ * Lazily-built SMTP transport (singleton). Configured from env.mail.
+ *
+ * Pooled: the university's server waits ~10 s before greeting (anti-spam), so
+ * a new connection per email made 60 invitations take over two minutes — past
+ * nginx's 120 s, answered 504 while the mails still went out. A few kept-open
+ * connections pay that delay once. Explicit timeouts, so a server that stops
+ * answering fails the send instead of holding the request forever.
+ */
 function getTransport(): Transporter {
   if (!transporter) {
     transporter = nodemailer.createTransport({
@@ -13,6 +21,12 @@ function getTransport(): Transporter {
       secure: env.mail.useSsl,
       requireTLS: env.mail.useTls && !env.mail.useSsl,
       auth: env.mail.user ? { user: env.mail.user, pass: env.mail.password } : undefined,
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      connectionTimeout: 30_000,
+      greetingTimeout: 30_000,
+      socketTimeout: 60_000,
     })
   }
   return transporter

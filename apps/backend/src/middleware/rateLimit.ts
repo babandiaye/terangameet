@@ -45,6 +45,19 @@ export const inviteLimiter = rateLimit({
 })
 
 /**
+ * Meeting planning throttle (create / change): each call may email up to 200
+ * guests, on top of the daily recipient quota (services/inviteQuota.ts).
+ */
+export const scheduleLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? ipKeyGenerator(req.ip ?? ''),
+  handler: tooMany,
+})
+
+/**
  * People-search throttle: the participant picker queries as the organiser
  * types (debounced client-side). Generous for typing, tight enough that the
  * directory cannot be scraped by a script.

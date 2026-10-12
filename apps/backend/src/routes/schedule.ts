@@ -5,7 +5,8 @@ import { prisma } from '../lib/prisma'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
 import { requireAuth } from '../auth/middleware'
-import { searchLimiter } from '../middleware/rateLimit'
+import { scheduleLimiter, searchLimiter } from '../middleware/rateLimit'
+import { quotaExceeded, reserveInvitations } from '../services/inviteQuota'
 import { parseEmailList } from '../lib/roomAccess'
 import { coHostPlan } from '../lib/coHosts'
 import { getRole } from '../services/rooms'
@@ -141,7 +142,7 @@ const createSchema = z
   .and(slotSchema)
 
 /** POST / — plan a meeting and send the invitations. */
-scheduleRouter.post('/', async (req, res) => {
+scheduleRouter.post('/', scheduleLimiter, async (req, res) => {
   const user = req.user!
   if (!user.email) return res.status(400).json({ detail: 'Votre compte n’a pas d’adresse email.' })
   const parsed = createSchema.safeParse(req.body)
@@ -157,7 +158,7 @@ scheduleRouter.post('/', async (req, res) => {
 
   const hosts = coHostPlan({ guests, requested: body.co_hosts, current: [] })
 
-  let room: Room | null
+  let room: Room | null = null
   if (body.room_id) {
     room = await prisma.room.findUnique({ where: { id: body.room_id } }).catch(() => null)
     const role = room ? await getRole(room.id, user.id) : null
@@ -165,7 +166,11 @@ scheduleRouter.post('/', async (req, res) => {
       return res.status(404).json({ detail: 'Salle introuvable.' })
     }
     if (hosts.coHosts.length && role !== 'OWNER') return coHostDenied(res)
-  } else {
+  }
+  // Taken last among the checks, so a refused request does not spend budget.
+  const quota = await reserveInvitations(user, guests.length)
+  if (!quota.ok) return res.status(429).json(quotaExceeded(quota.remaining))
+  if (!room) {
     room = await prisma.room.create({
       data: {
         name: body.title,
@@ -237,7 +242,7 @@ const updateSchema = z.object({
 })
 
 /** PATCH /:id/ — change a meeting (organiser only); guests receive the update. */
-scheduleRouter.patch('/:id/', async (req, res) => {
+scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
   const user = req.user!
   const m = await visibleMeeting(req.params.id, user)
   if (!m || m.organizerId !== user.id) return res.status(404).json({ detail: 'Réunion introuvable.' })
@@ -272,6 +277,10 @@ scheduleRouter.patch('/:id/', async (req, res) => {
   ) {
     return coHostDenied(res)
   }
+  // Only newly added guests count: updates to people already invited are not
+  // new invitations.
+  const quota = await reserveInvitations(user, added.length)
+  if (!quota.ok) return res.status(429).json(quotaExceeded(quota.remaining))
 
   // A meeting living in Google Calendar is changed there first: if Google
   // refuses, nothing changes here either. Google itself notifies added and

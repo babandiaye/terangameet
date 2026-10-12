@@ -7,7 +7,7 @@ const deleteObject = vi.fn()
 vi.mock('../lib/prisma', () => ({
   prisma: { recording: { findMany: (...a: unknown[]) => findMany(...a), delete: (...a: unknown[]) => del(...a) } },
 }))
-vi.mock('../lib/redis', () => ({ redis: { get: async () => '6m', set: async () => 'OK' } }))
+vi.mock('./settings', () => ({ getSetting: async () => '6m', setSetting: async () => undefined }))
 vi.mock('../lib/s3', () => ({ deleteObject: (...a: unknown[]) => deleteObject(...a) }))
 
 const { purgeRecordings } = await import('./recordingPurge')

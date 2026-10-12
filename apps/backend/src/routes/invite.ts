@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth } from "../auth/middleware";
-import { resolveRoom } from "../services/rooms";
+import { getRole, isAdminOrOwner, resolveRoom } from "../services/rooms";
+import { quotaExceeded, reserveInvitations } from "../services/inviteQuota";
 import { env } from "../config/env";
 import { roomUrl } from "../lib/roomLinks";
 import { sendMail } from "../lib/mailer";
@@ -19,7 +20,12 @@ const bodySchema = z.object({
   message: z.string().trim().max(2000).optional(),
 });
 
-/** POST /:roomId/invite/ — send the join link by email to one or more recipients. */
+/**
+ * POST /:roomId/invite/ — send the join link by email to one or more recipients.
+ * Only the room's owner and co-organizers (or a platform administrator) may:
+ * the mail leaves from the university's address, so it must not become a
+ * relay for anyone with an account.
+ */
 inviteRouter.post(
   "/:roomId/invite/",
   requireAuth,
@@ -45,13 +51,24 @@ inviteRouter.post(
     }
 
     const { room } = await resolveRoom(req.params.roomId);
-    const slug = room?.slug ?? req.params.roomId;
-    const url = roomUrl({ slug, id: slug });
+    if (!room) return res.status(404).json({ detail: "Salle introuvable." });
+    if (
+      !isAdminOrOwner(await getRole(room.id, req.user!.id)) &&
+      !req.user!.isStaff
+    ) {
+      return res.status(403).json({
+        detail: "Seuls l’organisateur et les co-organisateurs peuvent inviter par email.",
+      });
+    }
+    const slug = room.slug ?? room.id;
+    const url = roomUrl({ slug, id: room.id });
     const inviter = req.user!.fullName || req.user!.email || "Un participant";
-    const roomLabel = room?.name || slug;
+    const roomLabel = room.name || slug;
 
     // De-duplicate recipients while preserving order.
     const recipients = [...new Set(parsed.data.emails)];
+    const quota = await reserveInvitations(req.user!, recipients.length);
+    if (!quota.ok) return res.status(429).json(quotaExceeded(quota.remaining));
     const customMessage = parsed.data.message;
 
     const results = await Promise.allSettled(

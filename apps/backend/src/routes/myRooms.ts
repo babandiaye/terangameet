@@ -13,6 +13,7 @@ import { roomUrl } from '../lib/roomLinks'
 import { sendMail } from '../lib/mailer'
 import { getRole } from '../services/rooms'
 import { generateRoomSlug } from '../utils/slug'
+import { quotaExceeded, reserveInvitations } from '../services/inviteQuota'
 import { buildHtml, buildText } from './invite'
 
 /**
@@ -287,6 +288,8 @@ myRoomsRouter.post('/:roomId/invite-all/', inviteLimiter, async (req, res) => {
     await prisma.roomInvitee.findMany({ where: { roomId: found.room.id }, select: { email: true } })
   ).map((i) => i.email)
   if (!recipients.length) return res.status(400).json({ detail: 'La liste des participants est vide.' })
+  const quota = await reserveInvitations(req.user!, recipients.length)
+  if (!quota.ok) return res.status(429).json(quotaExceeded(quota.remaining))
 
   const url = roomUrl(found.room)
   const inviter = req.user!.fullName || req.user!.email || 'Un organisateur'

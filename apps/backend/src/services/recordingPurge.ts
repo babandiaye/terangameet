@@ -1,6 +1,6 @@
 import { Prisma, type RecordingStatus } from '@prisma/client'
 import { prisma } from '../lib/prisma'
-import { redis } from '../lib/redis'
+import { getSetting, setSetting } from './settings'
 import { deleteObject } from '../lib/s3'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
@@ -14,7 +14,6 @@ export const PURGE_PERIODS: Record<string, number> = {
   '1y': 12,
 }
 
-const REDIS_PERIOD_KEY = 'purge:period'
 const PURGE_BATCH = 500
 
 function normalizePeriod(value: string | null | undefined): string {
@@ -23,18 +22,18 @@ function normalizePeriod(value: string | null | undefined): string {
   return '6m'
 }
 
-/** Effective retention period (admin override in Redis, else env default). */
+/**
+ * Effective retention period: the administrator's choice (app_settings), else
+ * the env default. A database error propagates rather than falling back to the
+ * default, which could be shorter than the chosen period and purge too much.
+ */
 export async function getPurgePeriod(): Promise<string> {
-  try {
-    return normalizePeriod(await redis.get(REDIS_PERIOD_KEY))
-  } catch {
-    return normalizePeriod(env.purge.defaultPeriod)
-  }
+  return normalizePeriod(await getSetting('purge.period'))
 }
 
 export async function setPurgePeriod(period: string): Promise<string> {
   const normalized = normalizePeriod(period)
-  await redis.set(REDIS_PERIOD_KEY, normalized)
+  await setSetting('purge.period', normalized)
   return normalized
 }
 

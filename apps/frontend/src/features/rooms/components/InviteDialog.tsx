@@ -20,6 +20,7 @@ import { ApiAccessLevel } from '@/features/rooms/api/ApiRoom'
 import { useTelephony } from '@/features/rooms/livekit/hooks/useTelephony'
 import { formatPinCode } from '@/features/rooms/utils/telephony'
 import { useCopyRoomToClipboard } from '@/features/rooms/livekit/hooks/useCopyRoomToClipboard'
+import { errorMessage } from '@/features/me/components/roomAccessLevels'
 import { inviteByEmail } from '@/features/rooms/api/inviteByEmail'
 
 // fixme - extract in a proper primitive this dialog without overlay
@@ -50,7 +51,11 @@ export const InviteDialog = (props: Omit<DialogProps, 'title'>) => {
   const roomUrl = getRouteUrl('room', roomData?.slug)
 
   const { data: config } = useConfig()
-  const emailInviteEnabled = !!config?.email_invite?.enabled && !!roomData?.slug
+  // Only the organizer and co-organizers may send email invitations (server-enforced).
+  const emailInviteEnabled =
+    !!config?.email_invite?.enabled &&
+    !!roomData?.slug &&
+    !!roomData?.is_administrable
 
   const telephony = useTelephony()
 
@@ -317,7 +322,7 @@ const EmailInviteSection = ({ roomId }: { roomId: string }) => {
       )}
       {mutation.isError && (
         <Text variant="sm" className={css({ display: 'block', marginTop: '0.35rem', color: 'danger.600' })}>
-          {t('error')}
+          {errorMessage(mutation.error, t('error'))}
         </Text>
       )}
       {mutation.isSuccess && (

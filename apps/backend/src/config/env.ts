@@ -176,6 +176,12 @@ export const env = {
     // STARTTLS on 587 (useTls) vs implicit TLS on 465 (useSsl).
     useTls: bool('SMTP_USE_TLS', true),
     useSsl: bool('SMTP_USE_SSL', false),
+    /**
+     * Invitation recipients one account may email per day (link invitations
+     * and new meeting guests together). Keeps the university's sender from
+     * being used as a spam relay; platform administrators are exempt.
+     */
+    dailyRecipientQuota: int('INVITE_DAILY_RECIPIENT_QUOTA', 500),
   },
 
   // Google Calendar, per-user OAuth (phase 2 of the calendar). Hidden until a

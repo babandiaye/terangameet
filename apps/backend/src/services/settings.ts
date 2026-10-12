@@ -10,6 +10,13 @@ const DEFAULTS = {
   'calendar.enabled': false as boolean,
   /** Phase 2: users may link their Google Calendar (needs the OAuth client). */
   'calendar.google.enabled': false as boolean,
+  /**
+   * Recording retention chosen by an administrator ('1m' | '3m' | '6m' | '1y');
+   * empty falls back to PURGE_RECORDINGS_PERIOD. Kept here, not in Redis: Redis
+   * does not persist, and losing a « 1 year » choice would let the daily purge
+   * delete recordings people meant to keep — they are not backed up.
+   */
+  'purge.period': '' as string,
 }
 
 export type SettingKey = keyof typeof DEFAULTS
