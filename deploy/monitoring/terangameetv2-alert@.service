@@ -1,0 +1,6 @@
+[Unit]
+Description=TerangaMeet — alerte email : échec de %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/terangameetv2-monitor unit-failed %i

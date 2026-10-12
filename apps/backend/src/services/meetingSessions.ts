@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { logger } from '../lib/logger'
 
@@ -48,16 +49,23 @@ export async function onRoomStarted(room: LkRoom) {
     if (existing) return
   }
   const { roomId, creatorId, title } = await resolveRoomAndCreator(room.name)
-  await prisma.meetingSession.create({
-    data: {
-      livekitSid: sid,
-      livekitRoomName: room.name ?? '',
-      title,
-      roomId,
-      creatorId,
-      maxParticipants: room.numParticipants ?? 0,
-    },
-  })
+  try {
+    await prisma.meetingSession.create({
+      data: {
+        livekitSid: sid,
+        livekitRoomName: room.name ?? '',
+        title,
+        roomId,
+        creatorId,
+        maxParticipants: room.numParticipants ?? 0,
+      },
+    })
+  } catch (err) {
+    // room_started and a first participant_joined can race: the loser hits
+    // the unique sid — the session exists, which is all that was wanted.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return
+    throw err
+  }
   logger.info(`[session] started ${room.name} (sid=${sid})`)
 }
 
@@ -87,14 +95,16 @@ export async function onParticipant(
   }
   if (!session) return
 
+  // One atomic statement: two webhooks at once could each read the old peak
+  // and the lower value win.
   const current = room.numParticipants ?? 0
-  await prisma.meetingSession.update({
-    where: { id: session.id },
-    data: {
-      maxParticipants: Math.max(session.maxParticipants, current),
-      ...(kind === 'joined' ? { totalJoins: { increment: 1 } } : {}),
-    },
-  })
+  const joins = kind === 'joined' ? 1 : 0
+  await prisma.$executeRaw`
+    UPDATE meeting_sessions
+    SET "maxParticipants" = GREATEST("maxParticipants", ${current}),
+        "totalJoins" = "totalJoins" + ${joins},
+        "updatedAt" = now()
+    WHERE id = ${session.id}`
 
   const identity = participant.identity
   if (!identity) return

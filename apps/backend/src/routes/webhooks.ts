@@ -40,10 +40,14 @@ webhookRouter.post('/webhooks-livekit/', async (req, res) => {
     }
   }
 
+  // A failure (database unreachable…) answers 500 so LiveKit sends the event
+  // again; answering 200 lost it for good — a recording stuck « active »
+  // blocked its room, a session stayed « in progress ».
   try {
     await handleEvent(event)
   } catch (err) {
     logger.error('[webhook] handler error', err)
+    return res.status(500).json({ status: 'error' })
   }
   res.json({ status: 'success' })
 })
@@ -62,7 +66,7 @@ async function handleEvent(event: {
       const recording = await prisma.recording.findFirst({ where: { workerId: egressId } })
       if (!recording) return
       // Don't regress an already-finalized recording.
-      if (['SAVED', 'STOPPED', 'ABORTED', 'FAILED_TO_STOP'].includes(recording.status)) return
+      if (['STOPPING', 'SAVED', 'STOPPED', 'ABORTED', 'FAILED_TO_STOP'].includes(recording.status)) return
       await prisma.recording.update({ where: { id: recording.id }, data: { status: 'ACTIVE' } })
       logger.info(`[webhook] ${event.event} → recording ${recording.id} active`)
       break

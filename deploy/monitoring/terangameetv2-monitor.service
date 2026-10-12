@@ -1,0 +1,7 @@
+[Unit]
+Description=TerangaMeet — vérifications de supervision (alerte email au changement d'état)
+Documentation=file:///opt/terangameetv2/docs/SUPERVISION.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/terangameetv2-monitor check

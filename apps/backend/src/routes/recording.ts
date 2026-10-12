@@ -180,9 +180,11 @@ recordingRoomRouter.post("/:roomId/stop-recording/", async (req, res) => {
 
   try {
     if (active.workerId) await egressClient.stopEgress(active.workerId);
+    // STOPPING until egress_ended: the file is still being written, so it
+    // cannot be deleted yet (it would come back as an orphan in the bucket).
     await prisma.recording.update({
       where: { id: active.id },
-      data: { status: "STOPPED" },
+      data: { status: "STOPPING" },
     });
     // 'saving' keeps the indicator up while the egress finalizes & uploads; the
     // egress_ended webhook clears the metadata once the file is saved.
@@ -224,13 +226,26 @@ recordingRoomRouter.post("/:roomId/start-subtitle/", async (req, res) => {
 export const recordingsRouter = Router();
 recordingsRouter.use(requireAuth);
 
-function serializeRecording(r: import("@prisma/client").Recording) {
+const ROOM_FIELDS = { id: true, name: true, slug: true, accessLevel: true } as const;
+
+function serializeRecording(
+  r: import("@prisma/client").Recording & {
+    room: { id: string; name: string; slug: string | null; accessLevel: string };
+  },
+) {
   const expiredAt = env.recording.expirationDays
     ? new Date(r.createdAt.getTime() + env.recording.expirationDays * 86400000)
     : null;
   return {
     id: r.id,
-    room: r.roomId,
+    // An object, as the download page expects (it showed « undefined » when
+    // this was the bare id).
+    room: {
+      id: r.room.id,
+      name: r.room.name,
+      slug: r.room.slug,
+      access_level: r.room.accessLevel.toLowerCase(),
+    },
     created_at: r.createdAt.toISOString(),
     status: recordingStatusToApi(r.status),
     mode: r.mode.toLowerCase(),
@@ -253,6 +268,7 @@ recordingsRouter.get("/", async (req, res) => {
       orderBy: { createdAt: "desc" },
       skip,
       take,
+      include: { room: { select: ROOM_FIELDS } },
     }),
   ]);
   res.json(
@@ -260,12 +276,15 @@ recordingsRouter.get("/", async (req, res) => {
   );
 });
 
+/** Who may open a recording by id; administrators skip the standing lookup. */
+async function visibleWhere(user: import("@prisma/client").User) {
+  return user.isStaff ? {} : recordingVisibleTo(user, await recordingStanding(user));
+}
+
 recordingsRouter.get("/:id", async (req, res) => {
   const r = await prisma.recording.findFirst({
-    where: {
-      id: req.params.id,
-      ...recordingVisibleTo(req.user!, await recordingStanding(req.user!)),
-    },
+    where: { id: req.params.id, ...(await visibleWhere(req.user!)) },
+    include: { room: { select: ROOM_FIELDS } },
   });
   if (!r) return res.status(404).json({ detail: "Enregistrement introuvable." });
   res.json(serializeRecording(r));
@@ -280,10 +299,7 @@ recordingsRouter.get("/:id", async (req, res) => {
  */
 recordingsRouter.get("/:id/media/", async (req, res) => {
   const r = await prisma.recording.findFirst({
-    where: {
-      id: req.params.id,
-      ...recordingVisibleTo(req.user!, await recordingStanding(req.user!)),
-    },
+    where: { id: req.params.id, ...(await visibleWhere(req.user!)) },
   });
   if (!r) return res.status(404).json({ detail: "Enregistrement introuvable." });
 
@@ -366,7 +382,12 @@ recordingsRouter.delete("/:id", async (req, res) => {
   if (!final.includes(r.status)) {
     return res
       .status(409)
-      .json({ detail: "Un enregistrement en cours ne peut pas être supprimé." });
+      .json({
+        detail:
+          r.status === "STOPPING"
+            ? "L’enregistrement est en cours de finalisation : réessayez dans quelques minutes."
+            : "Un enregistrement en cours ne peut pas être supprimé.",
+      });
   }
   // Best-effort removal of the stored file before dropping the DB row.
   await deleteObject(recordingObjectKey(r), env.recording.bucket).catch((err) =>

@@ -20,6 +20,33 @@ export interface MailReport {
   sent: number
   failed: string[]
   via: 'google' | 'email'
+  /** Large lists go out in the background: `sent` is then the number queued. */
+  queued?: boolean
+}
+
+/** Above this many recipients, mails are sent after the response. */
+export const BACKGROUND_MAIL_THRESHOLD = 20
+
+/**
+ * Send the invitations, in the background when the list is long: the request
+ * no longer waits for the university's slow mail server (60 guests took over
+ * the 120 s nginx allows, and a retry then created the meeting twice). Short
+ * lists are awaited, so the organiser still sees an address that failed.
+ */
+export async function deliverInvitations(
+  m: MeetingWithRelations,
+  kind: ScheduleMailKind,
+  recipients: string[]
+): Promise<MailReport> {
+  if (recipients.length <= BACKGROUND_MAIL_THRESHOLD) {
+    return { ...(await sendInvitations(m, kind, recipients)), via: 'email' }
+  }
+  void sendInvitations(m, kind, recipients)
+    .then((r) => {
+      if (r.failed.length) logger.warn(`[schedule] ${kind} ${m.id}: ${r.failed.length} mail(s) failed in background`)
+    })
+    .catch((err) => logger.error(`[schedule] background ${kind} mails for ${m.id} failed`, err))
+  return { sent: recipients.length, failed: [], via: 'email', queued: true }
 }
 
 export const TIMEZONE = 'Africa/Dakar'
@@ -169,24 +196,25 @@ export async function syncRoomPeople(
   roomId: string,
   invitedById: string,
   meetingId: string,
-  change: { guests: string[]; promoted: string[]; demoted: string[] }
+  change: { guests: string[]; promoted: string[]; demoted: string[] },
+  db: Prisma.TransactionClient = prisma
 ) {
   if (change.guests.length) {
     // skipDuplicates: someone already listed keeps their row — and its origin,
     // so this meeting will not take them off later (services/roomInvitees.ts).
-    await prisma.roomInvitee.createMany({
+    await db.roomInvitee.createMany({
       data: change.guests.map((email) => ({ roomId, email, invitedById, addedByMeetingId: meetingId })),
       skipDuplicates: true,
     })
   }
   if (change.promoted.length) {
-    await prisma.roomInvitee.updateMany({
+    await db.roomInvitee.updateMany({
       where: { roomId, email: { in: change.promoted } },
       data: { isCoOrganizer: true },
     })
   }
   if (change.demoted.length) {
-    await prisma.roomInvitee.updateMany({
+    await db.roomInvitee.updateMany({
       where: { roomId, email: { in: change.demoted } },
       data: { isCoOrganizer: false },
     })

@@ -28,6 +28,8 @@ import { googleRouter } from "./routes/google";
 import { authRouter } from "./routes/auth";
 import { authLimiter, adminLimiter } from "./middleware/rateLimit";
 import { logger } from "./lib/logger";
+import { prisma } from "./lib/prisma";
+import { redis } from "./lib/redis";
 import { errorHandler, installAsyncErrorHandling } from "./lib/asyncErrors";
 
 export function createApp() {
@@ -43,7 +45,7 @@ export function createApp() {
       crossOriginEmbedderPolicy: false,
     }),
   );
-  app.use(morgan(env.isProd ? "combined" : "dev"));
+  if (env.NODE_ENV !== "test") app.use(morgan(env.isProd ? "combined" : "dev"));
   app.use(
     express.json({
       limit: "2mb",
@@ -64,7 +66,21 @@ export function createApp() {
   app.use(livekitAuth);
   app.use(csrf);
 
+  // Liveness: the process answers. Readiness: it can also reach its database
+  // and Redis — what the deploy script and the monitoring probe check, so a
+  // lost database is noticed even while the process is still up.
   app.get("/healthz", (_req, res) => res.json({ status: "ok" }));
+  app.get("/readyz", async (_req, res) => {
+    const timeout = <T>(p: Promise<T>) =>
+      Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000))]);
+    const [db, cache] = await Promise.allSettled([
+      timeout(prisma.$queryRaw`SELECT 1`),
+      timeout(redis.ping()),
+    ]);
+    const checks = { database: db.status === "fulfilled", redis: cache.status === "fulfilled" };
+    const ok = checks.database && checks.redis;
+    res.status(ok ? 200 : 503).json({ status: ok ? "ok" : "degraded", checks });
+  });
 
   // API
   const api = "/api/v1.0";

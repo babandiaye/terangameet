@@ -47,7 +47,7 @@ function cutoffDate(period: string): Date {
 
 const eligibleWhere = (cutoff: Date): Prisma.RecordingWhereInput => ({
   createdAt: { lt: cutoff },
-  status: { notIn: ['INITIATED', 'ACTIVE'] as RecordingStatus[] },
+  status: { notIn: ['INITIATED', 'ACTIVE', 'STOPPING'] as RecordingStatus[] },
 })
 
 /** How many recordings would be purged at the current/given period. */

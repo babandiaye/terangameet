@@ -282,7 +282,7 @@ roomsRouter.delete("/:roomId", requireStaff, async (req, res) => {
     include: { recordings: { select: { id: true, mode: true, status: true } } },
   });
   if (!room) return res.status(404).json({ detail: "Salle introuvable." });
-  if (room.recordings.some((r) => ["INITIATED", "ACTIVE"].includes(r.status))) {
+  if (room.recordings.some((r) => ["INITIATED", "ACTIVE", "STOPPING"].includes(r.status))) {
     return res.status(409).json({
       detail: "Un enregistrement est en cours dans cette salle : arrêtez-le d'abord.",
     });

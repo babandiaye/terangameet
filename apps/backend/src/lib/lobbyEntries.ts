@@ -14,6 +14,8 @@ export interface LobbyEntry {
   createdAt: number
   /** Last time the guest's browser asked; absent on entries saved before it existed. */
   lastSeenAt?: number
+  /** When a moderator accepted or refused. */
+  decidedAt?: number
 }
 
 /**

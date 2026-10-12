@@ -3,6 +3,8 @@ Description=TerangaMeet — sauvegarde nocturne (base + configuration), vérifi�
 Documentation=file:///opt/terangameetv2/docs/SAUVEGARDES.md
 Requires=docker.service
 After=docker.service
+# Une sauvegarde en échec envoie un email (deploy/monitoring).
+OnFailure=terangameetv2-alert@%n.service
 
 [Service]
 Type=oneshot

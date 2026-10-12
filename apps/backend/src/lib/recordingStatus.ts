@@ -7,6 +7,8 @@
 export const STATUS_TO_API: Record<string, string> = {
   INITIATED: 'initiated',
   ACTIVE: 'active',
+  // Shown as the frontend's « stopped » (being saved) until the egress ends.
+  STOPPING: 'stopped',
   STOPPED: 'stopped',
   SAVED: 'saved',
   ABORTED: 'aborted',

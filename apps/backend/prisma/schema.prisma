@@ -38,6 +38,8 @@ enum AttendeeResponse {
 enum RecordingStatus {
   INITIATED
   ACTIVE
+  /// Stop requested; the egress is still finalizing and uploading the file.
+  STOPPING
   STOPPED
   SAVED
   ABORTED
@@ -250,6 +252,10 @@ model Recording {
 
   @@index([creatorId])
   @@index([sessionId])
+  /// Room recordings by date: visibility by room standing, admin lists.
+  @@index([roomId, createdAt])
+  /// Egress webhooks look the recording up by its worker id.
+  @@index([workerId])
   @@map("recordings")
 }
 

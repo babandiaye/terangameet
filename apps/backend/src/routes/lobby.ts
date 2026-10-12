@@ -27,9 +27,60 @@ async function getEntry(room: string, id: string): Promise<LobbyEntry | null> {
   const raw = await redis.hget(key(room), id);
   return raw ? (JSON.parse(raw) as LobbyEntry) : null;
 }
-async function setEntry(room: string, entry: LobbyEntry): Promise<void> {
-  await redis.hset(key(room), entry.id, JSON.stringify(entry));
-  await redis.expire(key(room), env.lobby.acceptedTimeout);
+/**
+ * The waiting browser asks every second while a moderator may decide at any
+ * moment: both sides change one entry, so each change is a single Lua script,
+ * atomic in Redis. Before, the guest's read-then-write could put « waiting »
+ * back over an acceptance made in between, and the moderator had to admit
+ * them twice.
+ */
+const TOUCH_SCRIPT = `
+local raw = redis.call('HGET', KEYS[1], ARGV[1])
+local e
+if raw then e = cjson.decode(raw) else e = cjson.decode(ARGV[4]) end
+e.username = ARGV[2]
+e.lastSeenAt = tonumber(ARGV[3])
+redis.call('HSET', KEYS[1], ARGV[1], cjson.encode(e))
+redis.call('EXPIRE', KEYS[1], tonumber(ARGV[5]))
+if raw then return 1 else return 0 end`;
+
+const DECIDE_SCRIPT = `
+local raw = redis.call('HGET', KEYS[1], ARGV[1])
+if not raw then return 0 end
+local e = cjson.decode(raw)
+e.status = ARGV[2]
+e.decidedAt = tonumber(ARGV[3])
+redis.call('HSET', KEYS[1], ARGV[1], cjson.encode(e))
+redis.call('EXPIRE', KEYS[1], tonumber(ARGV[4]))
+return 1`;
+
+/** Record that the guest is still asking (creating the request if new); status untouched. Returns true if it existed. */
+async function touchEntry(room: string, fresh: LobbyEntry): Promise<boolean> {
+  const existed = await redis.eval(
+    TOUCH_SCRIPT,
+    1,
+    key(room),
+    fresh.id,
+    fresh.username,
+    String(Date.now()),
+    JSON.stringify(fresh),
+    String(env.lobby.acceptedTimeout),
+  );
+  return existed === 1;
+}
+
+/** A moderator's decision; false if the request is gone. */
+async function decide(room: string, id: string, status: "accepted" | "denied"): Promise<boolean> {
+  const done = await redis.eval(
+    DECIDE_SCRIPT,
+    1,
+    key(room),
+    id,
+    status,
+    String(Date.now()),
+    String(env.lobby.acceptedTimeout),
+  );
+  return done === 1;
 }
 
 /** Local shim so call sites keep reading `displayName(req, username)`. */
@@ -116,24 +167,25 @@ lobbyRouter.post("/:roomId/request-entry/", async (req, res) => {
     });
   }
 
+  // A refusal holds for a few minutes: asking again at once used to put the
+  // person straight back in the moderators' list.
   if (existing?.status === "denied") {
+    const since = Date.now() - (existing.decidedAt ?? 0);
+    if (since < env.lobby.deniedTimeout * 60_000) return res.json({ status: "denied" });
     await redis.hdel(key(livekitRoom), pid);
-    return res.json({ status: "denied" });
   }
 
-  // New or still waiting.
-  const entry: LobbyEntry = existing ?? {
+  // New or still waiting: only the name and « still asking » change.
+  const existed = await touchEntry(livekitRoom, {
     id: pid,
     username: displayName(req, username),
     color: colorFromSeed(pid),
     status: "waiting",
     createdAt: Date.now(),
-  };
-  entry.username = displayName(req, username);
-  entry.lastSeenAt = Date.now(); // the browser is still waiting
-  await setEntry(livekitRoom, entry);
+    lastSeenAt: Date.now(),
+  });
 
-  if (!existing) {
+  if (!existed) {
     // Nudge admins to refresh their waiting list.
     await notifyRoom(livekitRoom, { type: "participantWaiting" });
   }
@@ -187,11 +239,12 @@ lobbyRouter.post("/:roomId/enter/", async (req, res) => {
   if (!auth.ok)
     return res.status(403).json({ detail: "Vous n’avez pas les droits nécessaires pour cette action." });
 
-  const entry = await getEntry(auth.livekitRoom, parsed.data.participant_id);
-  if (!entry) return res.status(404).json({ detail: "Participant introuvable." });
-
-  entry.status = parsed.data.allow_entry ? "accepted" : "denied";
-  await setEntry(auth.livekitRoom, entry);
+  const found = await decide(
+    auth.livekitRoom,
+    parsed.data.participant_id,
+    parsed.data.allow_entry ? "accepted" : "denied",
+  );
+  if (!found) return res.status(404).json({ detail: "Participant introuvable." });
   res.json({ message: parsed.data.allow_entry ? "accepted" : "denied" });
 });
 

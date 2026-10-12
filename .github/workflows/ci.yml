@@ -1,0 +1,87 @@
+# Intégration continue : à chaque push et pull request, le code doit passer les
+# mêmes vérifications que deploy/deploy.sh avant de pouvoir être déployé.
+name: CI
+
+on:
+  push:
+    branches: [DEV, main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (types, tests unitaires et d'intégration)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: terangemeetv2_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Valeurs de test uniquement (aucun secret réel).
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/terangemeetv2_test
+      REDIS_URL: redis://localhost:6379/15
+      SESSION_SECRET: ci-session-secret-ci-session-secret-0123456789
+      LIVEKIT_API_KEY: cikey
+      LIVEKIT_API_SECRET: ci-livekit-secret-ci-livekit-secret
+      LIVEKIT_API_URL: http://127.0.0.1:1
+      LIVEKIT_WS_URL: ws://127.0.0.1:1
+      APP_BASE_URL: http://localhost
+      SMTP_HOST: smtp.invalid
+      SMTP_ENABLED: 'true'
+      ALLOW_UNREGISTERED_ROOMS: 'false'
+      RECORDING_ENABLE: 'true'
+      INVITE_DAILY_RECIPIENT_QUOTA: '30'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @terangameet/backend exec prisma generate
+      - run: pnpm --filter @terangameet/backend run typecheck
+      - run: pnpm --filter @terangameet/backend run test
+      - run: pnpm --filter @terangameet/backend run test:integration
+      - run: pnpm --filter @terangameet/backend run build
+
+  frontend:
+    name: Frontend (types, lint, build)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/frontend
+        run: pnpm exec panda codegen && pnpm exec tsc -b && pnpm exec eslint src --max-warnings=0
+      - working-directory: apps/frontend
+        run: pnpm exec vite build
+
+  audit:
+    name: Dépendances (vulnérabilités élevées et critiques)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: pnpm audit --prod --audit-level high

@@ -8,6 +8,7 @@ import { requireAuth } from '../auth/middleware'
 import { scheduleLimiter, searchLimiter } from '../middleware/rateLimit'
 import { quotaExceeded, releaseInvitations, reserveInvitations } from '../services/inviteQuota'
 import { releaseMeetingGuests } from '../services/roomInvitees'
+import * as idempotency from '../services/idempotency'
 import { parseEmailList } from '../lib/roomAccess'
 import { coHostPlan } from '../lib/coHosts'
 import { getRole } from '../services/rooms'
@@ -22,6 +23,7 @@ import {
   serializeMeeting,
   visibleMeeting,
   sendInvitations,
+  deliverInvitations,
   syncRoomPeople,
   googleEventOf,
 } from '../services/scheduledMeetings'
@@ -32,8 +34,8 @@ import {
  * Any signed-in user plans a meeting at a date, in one of their rooms or a new
  * one, and invites people by email. Invitations are iCalendar emails: Gmail
  * shows Yes / No / Maybe and puts the event in the guest's Google Calendar,
- * link included. The organiser is the iCalendar ORGANIZER, so replies reach
- * their own mailbox. Guests are also added to the room's participant list, so
+ * link included. The calendar ORGANIZER is TerangaMeet's sending address (see
+ * sendInvitations). Guests are also added to the room's participant list, so
  * they get in without waiting even when the room is restricted.
  *
  * The whole feature is off until an administrator enables it (and SMTP is
@@ -142,8 +144,36 @@ const createSchema = z
   })
   .and(slotSchema)
 
-/** POST / — plan a meeting and send the invitations. */
+/**
+ * POST / — plan a meeting and send the invitations. With an Idempotency-Key
+ * header, a retried request answers with the meeting already created.
+ */
 scheduleRouter.post('/', scheduleLimiter, async (req, res) => {
+  const user = req.user!
+  const claim = await idempotency.claim('schedule', user.id, req.get('Idempotency-Key'))
+  if (claim.state === 'pending') {
+    return res.status(409).json({ detail: 'Cette réunion est déjà en cours de création.' })
+  }
+  if (claim.state === 'done') {
+    const existing = await visibleMeeting(claim.value, user)
+    if (existing) {
+      return res.json({
+        meeting: await serializeMeeting(existing, user),
+        mail: { sent: 0, failed: [], via: existing.googleEventId ? 'google' : 'email' },
+      })
+    }
+  }
+  try {
+    await createMeeting(req, res, claim)
+    if (res.statusCode !== 201) await idempotency.abandon(claim)
+  } catch (err) {
+    await idempotency.abandon(claim)
+    throw err
+  }
+})
+
+/** The creation itself; answers the request and returns its status code. */
+async function createMeeting(req: Request, res: Response, claim: idempotency.Claim): Promise<unknown> {
   const user = req.user!
   if (!user.email) return res.status(400).json({ detail: 'Votre compte n’a pas d’adresse email.' })
   const parsed = createSchema.safeParse(req.body)
@@ -171,45 +201,48 @@ scheduleRouter.post('/', scheduleLimiter, async (req, res) => {
   // Taken last among the checks, so a refused request does not spend budget.
   const quota = await reserveInvitations(user, guests.length)
   if (!quota.ok) return res.status(429).json(quotaExceeded(quota.remaining))
-  // Nothing is sent if the writes below fail: give the reservation back.
-  const refund = (err: unknown) => {
-    void releaseInvitations(user, guests.length)
-    throw err
-  }
-  if (!room) {
-    room = await prisma.room.create({
-      data: {
-        name: body.title,
-        slug: generateRoomSlug(),
-        accessLevel: (body.access_level ?? env.rooms.defaultAccessLevel).toUpperCase() as Room['accessLevel'],
-        accesses: { create: { userId: user.id, role: 'OWNER' } },
-      },
-    }).catch(refund)
-  }
-
-  const created = await prisma.scheduledMeeting.create({
-    data: {
-      roomId: room.id,
-      organizerId: user.id,
-      title: body.title,
-      description: body.description,
-      startsAt: body.starts_at,
-      endsAt: body.ends_at,
-      timezone: TIMEZONE,
-      attendees: {
-        create: guests.map((email) => ({
-          email,
-          isCoHost: hosts.coHosts.includes(email),
-        })),
-      },
-    },
-    include: withRelations,
-  }).catch(refund)
-  await syncRoomPeople(room.id, user.id, created.id, {
-    guests,
-    promoted: hosts.coHosts,
-    demoted: [],
-  })
+  // Room, meeting and participant list in one transaction: a failure halfway
+  // used to leave a room without its meeting, or guests missing from the list.
+  // Nothing is sent if it fails, so the quota reservation is given back.
+  const created = await prisma
+    .$transaction(async (tx) => {
+      const target =
+        room ??
+        (await tx.room.create({
+          data: {
+            name: body.title,
+            slug: generateRoomSlug(),
+            accessLevel: (body.access_level ?? env.rooms.defaultAccessLevel).toUpperCase() as Room['accessLevel'],
+            accesses: { create: { userId: user.id, role: 'OWNER' } },
+          },
+        }))
+      const meeting = await tx.scheduledMeeting.create({
+        data: {
+          roomId: target.id,
+          organizerId: user.id,
+          title: body.title,
+          description: body.description,
+          startsAt: body.starts_at,
+          endsAt: body.ends_at,
+          timezone: TIMEZONE,
+          attendees: {
+            create: guests.map((email) => ({
+              email,
+              isCoHost: hosts.coHosts.includes(email),
+            })),
+          },
+        },
+        include: withRelations,
+      })
+      await syncRoomPeople(target.id, user.id, meeting.id, { guests, promoted: hosts.coHosts, demoted: [] }, tx)
+      return meeting
+    })
+    .catch(async (err) => {
+      await releaseInvitations(user, guests.length)
+      throw err
+    })
+  // From here a retry with the same key gets this meeting, not a second one.
+  await idempotency.complete(claim, created.id)
 
   // The channel is fixed here, for the meeting's whole life: Google when the
   // organiser linked their calendar (Google then emails the guests), else
@@ -233,10 +266,10 @@ scheduleRouter.post('/', scheduleLimiter, async (req, res) => {
       )
     }
   }
-  mail ??= { ...(await sendInvitations(created, 'new', guests)), via: 'email' }
+  mail ??= await deliverInvitations(created, 'new', guests)
   logger.info(`[schedule] ${user.email} planned ${created.id} with ${guests.length} guest(s) via ${mail.via}`)
-  res.status(201).json({ meeting: await serializeMeeting(created, user), mail })
-})
+  return res.status(201).json({ meeting: await serializeMeeting(created, user), mail })
+}
 
 const updateSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
@@ -365,9 +398,9 @@ scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
   const mail: MailReport = updated.googleEventId
     ? { sent: toNotify.length, failed: [], via: 'google' }
     : slotChanged
-      ? { ...(await sendInvitations(updated, 'update', guests)), via: 'email' }
+      ? await deliverInvitations(updated, 'update', guests)
       : added.length
-        ? { ...(await sendInvitations(updated, 'new', added)), via: 'email' }
+        ? await deliverInvitations(updated, 'new', added)
         : { sent: 0, failed: [], via: 'email' }
   res.json({ meeting: await serializeMeeting(updated, user), mail })
 })
@@ -397,14 +430,11 @@ scheduleRouter.delete('/:id/', scheduleLimiter, async (req, res) => {
   })
   const mail: MailReport = cancelled.googleEventId
     ? { sent: cancelled.attendees.length, failed: [], via: 'google' }
-    : {
-        ...(await sendInvitations(
-          cancelled,
-          'cancel',
-          cancelled.attendees.map((a) => a.email)
-        )),
-        via: 'email',
-      }
+    : await deliverInvitations(
+        cancelled,
+        'cancel',
+        cancelled.attendees.map((a) => a.email)
+      )
   await releaseMeetingGuests(
     cancelled.roomId,
     cancelled.id,

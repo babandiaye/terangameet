@@ -1,5 +1,9 @@
-import 'dotenv/config'
+import { config as loadDotenv } from 'dotenv'
 import { logger } from '../lib/logger'
+
+// Production gets its environment from systemd (EnvironmentFile): a stray .env
+// next to the code must never add to it. Elsewhere, .env feeds development.
+if (process.env.NODE_ENV !== 'production') loadDotenv()
 
 function str(name: string, fallback?: string): string {
   const v = process.env[name]
@@ -113,6 +117,7 @@ export const env = {
   lobby: {
     keyPrefix: str('LOBBY_KEY_PREFIX', 'room_lobby'),
     waitingTimeout: int('LOBBY_WAITING_TIMEOUT', 3),
+    /** Minutes a refused person keeps getting « refused » before they may ask again. */
     deniedTimeout: int('LOBBY_DENIED_TIMEOUT', 5),
     acceptedTimeout: int('LOBBY_ACCEPTED_TIMEOUT', 6 * 3600),
     cookieName: str('LOBBY_COOKIE_NAME', 'lobbyParticipantId'),

@@ -15,6 +15,7 @@ import { getRole } from '../services/rooms'
 import { generateRoomSlug } from '../utils/slug'
 import { quotaExceeded, reserveInvitations } from '../services/inviteQuota'
 import { removeRoomInvitees } from '../services/roomInvitees'
+import { BACKGROUND_MAIL_THRESHOLD } from '../services/scheduledMeetings'
 import { buildHtml, buildText } from './invite'
 
 /**
@@ -303,17 +304,26 @@ myRoomsRouter.post('/:roomId/invite-all/', inviteLimiter, async (req, res) => {
   }
 
   // A few at a time: up to 300 recipients must not open 300 SMTP sessions at once.
-  const failed: string[] = []
-  for (let i = 0; i < recipients.length; i += 5) {
-    const batch = recipients.slice(i, i + 5)
-    const results = await Promise.allSettled(batch.map((to) => sendMail({ to, ...mail })))
-    results.forEach((r, j) => {
-      if (r.status === 'rejected') {
-        failed.push(batch[j])
-        logger.warn(`[my-rooms] invitation to ${batch[j]} failed: ${String(r.reason)}`)
-      }
-    })
+  const sendAll = async () => {
+    const failed: string[] = []
+    for (let i = 0; i < recipients.length; i += 5) {
+      const batch = recipients.slice(i, i + 5)
+      const results = await Promise.allSettled(batch.map((to) => sendMail({ to, ...mail })))
+      results.forEach((r, j) => {
+        if (r.status === 'rejected') {
+          failed.push(batch[j])
+          logger.warn(`[my-rooms] invitation to ${batch[j]} failed: ${String(r.reason)}`)
+        }
+      })
+    }
+    return failed
   }
+  // A long list goes out after the response (see deliverInvitations).
+  if (recipients.length > BACKGROUND_MAIL_THRESHOLD) {
+    void sendAll().catch((err) => logger.error('[my-rooms] background invitations failed', err))
+    return res.json({ sent: recipients.length, failed: [], queued: true })
+  }
+  const failed = await sendAll()
   const sent = recipients.length - failed.length
   if (!sent) return res.status(502).json({ detail: "L'envoi des invitations a échoué.", sent, failed })
   res.json({ sent, failed })

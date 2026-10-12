@@ -4,6 +4,7 @@ import { prisma } from './lib/prisma'
 import { logger } from './lib/logger'
 import { startPurgeScheduler } from './services/recordingPurge'
 import { startGoogleSyncScheduler } from './services/googleSync'
+import { startReconcileScheduler } from './services/livekitReconcile'
 
 // Safety nets. A stray rejected promise (a fire-and-forget call, a timer) is
 // logged, not fatal: Node 22 would otherwise stop the server and every meeting
@@ -29,11 +30,13 @@ async function main() {
 
   const stopPurge = startPurgeScheduler()
   const stopGoogleSync = startGoogleSyncScheduler()
+  const stopReconcile = startReconcileScheduler()
 
   const shutdown = async (signal: string) => {
     logger.info(`[server] ${signal} received, shutting down`)
     stopPurge()
     stopGoogleSync()
+    stopReconcile()
     server.close()
     await prisma.$disconnect()
     process.exit(0)

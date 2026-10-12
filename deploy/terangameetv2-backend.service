@@ -1,19 +1,55 @@
 [Unit]
 Description=TerangaMeet v2 backend (Node/Express)
+Documentation=file:///opt/terangameetv2/docs/SUPERVISION.md
 After=network.target docker.service
 Wants=network.target
+# Redémarrages en boucle : au-delà de 5 échecs en 5 min l'unité passe en échec,
+# ce qui déclenche l'email d'alerte.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+OnFailure=terangameetv2-alert@%n.service
 
-# Remplacer User= par le compte système propriétaire de /opt/terangameetv2.
 [Service]
 Type=simple
+# Compte système dédié, sans shell ni droit d'écriture sur le code : une faille
+# dans Node ne peut ni modifier l'application ni atteindre un compte humain.
 User=terangameet
+Group=terangameet
 WorkingDirectory=/opt/terangameetv2/apps/backend
+# Lu par systemd (root) avant le changement d'utilisateur : le fichier reste en
+# 600 et le service n'a pas besoin de pouvoir le lire.
 EnvironmentFile=/opt/terangameetv2/apps/backend/.env.production
-ExecStart=/usr/bin/node dist/index.js
+# Binaire Node appartenant à root (copie de la version nvm, voir SUPERVISION.md) :
+# /usr/bin/node pointe dans /home/pabn, modifiable par un compte humain.
+ExecStart=/usr/local/lib/terangameet/node/bin/node dist/index.js
 Restart=on-failure
 RestartSec=3
-# Allow binding and reaching the docker bridge network.
+
+# Durcissement (systemd-analyze security terangameetv2-backend).
 NoNewPrivileges=true
+ProtectSystem=strict
+ReadOnlyPaths=/opt/terangameetv2
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target
