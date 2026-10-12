@@ -15,6 +15,7 @@ import { Tools } from './Tools'
 import { Info } from './Info'
 import { Notes } from '@/features/notes/components/Notes'
 import { HStack } from '@/styled-system/jsx'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useReactionsToolbar } from '@/features/reactions/hooks/useReactionsToolbar'
 
 type StyledSidePanelProps = {
@@ -142,7 +143,11 @@ const Panel = ({ isOpen, keepAlive = false, children }: PanelProps) => (
       flexGrow: 1,
     }}
   >
-    {keepAlive || isOpen ? children : null}
+    {/* A crashing panel (chat, notes, tools…) must not end the meeting:
+        the boundary keeps the error local to this panel. */}
+    {keepAlive || isOpen ? (
+      <ErrorBoundary variant="panel">{children}</ErrorBoundary>
+    ) : null}
   </div>
 )
 export const SidePanel = () => {

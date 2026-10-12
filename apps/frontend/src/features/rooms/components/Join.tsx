@@ -534,7 +534,12 @@ export const Join = ({
               className={css({
                 borderRadius: '1rem',
                 flex: '0 1',
-                minWidth: '320px',
+                // On phones, 320px plus the 0.5rem side margins overflowed
+                // 320–375px viewports; cap to the available width instead.
+                minWidth: {
+                  base: 'min(320px, calc(100% - 1rem))',
+                  sm: '320px',
+                },
                 margin: {
                   base: '0.5rem',
                   sm: '1rem',

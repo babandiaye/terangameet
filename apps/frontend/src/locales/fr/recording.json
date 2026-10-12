@@ -5,7 +5,8 @@
   },
   "expired": {
     "title": "Enregistrement expiré",
-    "body": "Cet enregistrement a été supprimé le {{date}}."
+    "body": "Cet enregistrement a été supprimé le {{date}}.",
+    "bodyNoDate": "Cet enregistrement a été supprimé."
   },
   "authentication": {
     "title": "Authentification requise",

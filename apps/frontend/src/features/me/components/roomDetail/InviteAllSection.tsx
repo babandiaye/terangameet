@@ -83,7 +83,9 @@ export const InviteAllSection = ({ room }: { room: MyRoomDetail }) => {
           <div aria-live="polite">
             {send.isSuccess && (
               <p className={send.data.failed.length ? errorText : successText}>
-                {send.data.sent} invitation(s) envoyée(s)
+                {send.data.queued
+                  ? `${send.data.sent} invitation(s) en cours d’envoi`
+                  : `${send.data.sent} invitation(s) envoyée(s)`}
                 {send.data.failed.length
                   ? ` · échec pour ${send.data.failed.join(', ')}`
                   : '.'}

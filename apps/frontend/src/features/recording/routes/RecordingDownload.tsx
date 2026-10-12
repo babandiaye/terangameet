@@ -19,6 +19,23 @@ import { useConfig } from '@/api/useConfig'
 
 const APP_TITLE = import.meta.env.VITE_APP_TITLE ?? ''
 
+const FALLBACK_ROOM_NAME = 'Réunion'
+
+/**
+ * Builds a filename the OS will accept: no path separators, reserved or
+ * control characters, and never the literal "undefined".
+ */
+const toDownloadFilename = (roomName: string, createdAt: string) => {
+  // eslint-disable-next-line no-control-regex
+  const unsafe = /[\u0000-\u001f\u007f/\\:*?"<>|]+/g
+  const safe = (value: string) =>
+    value.replace(unsafe, '-').replace(/\s+/g, ' ').trim()
+  const name = safe(roomName) || FALLBACK_ROOM_NAME
+  const formatted = formatDate(createdAt, 'YYYY-MM-DD HH-mm')
+  const date = formatted === 'Invalid Date' ? '' : safe(formatted)
+  return date ? `${name}-${date}` : name
+}
+
 const BetaBadge = () => (
   <span
     className={css({
@@ -155,12 +172,18 @@ const RecordingDownload = () => {
     return (
       <ErrorScreen
         title={t('expired.title')}
-        body={t('expired.body', {
-          date: formatDate(data?.expired_at, 'YYYY-MM-DD HH:mm'),
-        })}
+        body={
+          data.expired_at
+            ? t('expired.body', {
+                date: formatDate(data.expired_at, 'YYYY-MM-DD HH:mm'),
+              })
+            : t('expired.bodyNoDate')
+        }
       />
     )
   }
+
+  const roomName = data.room?.name?.trim() || FALLBACK_ROOM_NAME
 
   return (
     <UserAware>
@@ -173,7 +196,7 @@ const RecordingDownload = () => {
             <Text centered margin="md" wrap={'balance'}>
               <span>
                 {t('success.body', {
-                  room: data.room.name,
+                  room: roomName,
                   created_at: formatDate(data.created_at, 'YYYY-MM-DD HH:mm'),
                 })}
               </span>
@@ -199,7 +222,7 @@ const RecordingDownload = () => {
                 the same URL now plays in the tab instead of saving. */}
             <LinkButton
               href={apiUrl(`recordings/${data.id}/media/?download=1`)}
-              download={`${data.room.name}-${formatDate(data.created_at)}`}
+              download={toDownloadFilename(roomName, data.created_at)}
             >
               {t('success.button')}
             </LinkButton>

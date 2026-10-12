@@ -17,7 +17,8 @@ const Card = styled('div', {
     marginTop: '1.5rem',
     borderRadius: '0.25rem',
     boxShadow: '',
-    minWidth: '380px',
+    // Capped to the container so 320–375px phones do not scroll sideways.
+    minWidth: 'min(380px, 100%)',
     minHeight: '196px',
   },
 })

@@ -5,6 +5,13 @@
   "error": {
     "heading": "Une erreur est survenue lors du chargement de la page"
   },
+  "errorBoundary": {
+    "title": "Une erreur est survenue",
+    "body": "Un problème inattendu a interrompu l’affichage de cette page.",
+    "reload": "Recharger la page",
+    "panelBody": "Ce panneau a rencontré une erreur. La réunion continue.",
+    "retry": "Réessayer"
+  },
   "feedback": {
     "context": "Vos retours sont essentiels !",
     "cta": "Partagez votre avis - nouvelle fenêtre"

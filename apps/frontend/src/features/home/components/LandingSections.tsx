@@ -11,30 +11,42 @@ import { css } from '@/styled-system/css'
  * Landing sections for signed-out visitors.
  */
 
+// Each tone is a literal css() call: Panda extracts styles statically, so
+// passing token names through variables (`backgroundColor: tint`) produced no
+// CSS at all in production builds.
+
 const PILLARS = [
   {
     key: 'meetings',
     Icon: RiTeamLine,
-    tint: 'landing.blue-subtle',
-    fg: 'landing.blue-bright',
+    tone: css({
+      backgroundColor: 'landing.blue-subtle',
+      color: 'landing.blue-bright',
+    }),
   },
   {
     key: 'collab',
     Icon: RiComputerLine,
-    tint: 'landing.tint-green',
-    fg: 'landing.icon-green',
+    tone: css({
+      backgroundColor: 'landing.tint-green',
+      color: 'landing.icon-green',
+    }),
   },
   {
     key: 'security',
     Icon: RiShieldCheckLine,
-    tint: 'landing.tint-orange',
-    fg: 'landing.icon-orange',
+    tone: css({
+      backgroundColor: 'landing.tint-orange',
+      color: 'landing.icon-orange',
+    }),
   },
   {
     key: 'performance',
     Icon: RiBarChartBoxLine,
-    tint: 'landing.tint-purple',
-    fg: 'landing.icon-purple',
+    tone: css({
+      backgroundColor: 'landing.tint-purple',
+      color: 'landing.icon-purple',
+    }),
   },
 ] as const
 
@@ -64,7 +76,7 @@ export const LandingSections = () => {
             gap: '1.1rem',
           })}
         >
-          {PILLARS.map(({ key, Icon, tint, fg }) => (
+          {PILLARS.map(({ key, Icon, tone }) => (
             <li
               key={key}
               className={css({
@@ -79,7 +91,7 @@ export const LandingSections = () => {
               })}
             >
               <span
-                className={css({
+                className={`${css({
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -87,9 +99,7 @@ export const LandingSections = () => {
                   height: '46px',
                   borderRadius: '12px',
                   flexShrink: 0,
-                  backgroundColor: tint,
-                  color: fg,
-                })}
+                })} ${tone}`}
               >
                 <Icon size={23} aria-hidden="true" />
               </span>

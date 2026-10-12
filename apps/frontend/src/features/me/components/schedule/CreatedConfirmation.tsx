@@ -45,7 +45,9 @@ export const CreatedConfirmation = ({
           ? 'Aucun invité : partagez le lien ci-dessus, ou ajoutez des invités depuis l’agenda.'
           : mail.via === 'google'
             ? `Réunion créée dans votre Google Agenda : Google envoie l’invitation à ${meeting.attendees.length} invité(s).`
-            : `Invitation envoyée par email à ${meeting.attendees.filter((a) => !mail.failed.includes(a.email)).length} invité(s).`}
+            : mail.queued
+              ? `Les invitations partent par email à ${mail.sent} invité(s) ; l’envoi se poursuit en arrière-plan.`
+              : `Invitation envoyée par email à ${meeting.attendees.filter((a) => !mail.failed.includes(a.email)).length} invité(s).`}
       </p>
       {mail.failed.length > 0 && (
         <p

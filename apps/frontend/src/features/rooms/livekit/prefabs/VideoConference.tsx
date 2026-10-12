@@ -44,6 +44,7 @@ import { RoomContentArea } from '@/features/layout/components/RoomContentArea'
 import { usePictureInPicture } from '@/features/pip/hooks/usePictureInPicture'
 import { PipRoomPlaceholder } from '@/features/pip/components/PipRoomPlaceholder'
 import { AnalyticsMount } from '@/features/analytics/components/AnalyticsMount'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 /**
  * @public
@@ -309,7 +310,11 @@ export function VideoConference({ ...props }: VideoConferenceProps) {
       <RecordingProvider />
       <SettingsDialogProvider />
       <ReactionPortals />
-      <AnalyticsMount />
+      {/* Analytics is a moderator-only extra: if it throws, drop it rather
+          than the whole conference. */}
+      <ErrorBoundary variant="silent">
+        <AnalyticsMount />
+      </ErrorBoundary>
     </div>
   )
 }

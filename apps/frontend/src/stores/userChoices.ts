@@ -1,14 +1,15 @@
 import { proxy, subscribe } from 'valtio'
+// Type-only imports: this store is loaded on every page (via
+// UsernameOwnerGuard), so any runtime import from livekit-client,
+// @livekit/components-core or the blur processors would pull the whole
+// conference stack (livekit-client, track-processors, posthog) into the
+// initial bundle of the home, mon espace and admin pages.
+import type { LocalUserChoices as LocalUserChoicesLK } from '@livekit/components-core'
+import type { VideoQuality } from 'livekit-client'
 import {
-  ProcessorConfig,
   ProcessorType,
-} from '@/features/rooms/livekit/components/blur'
-import {
-  loadUserChoices,
-  type LocalUserChoices as LocalUserChoicesLK,
-  saveUserChoices,
-} from '@livekit/components-core'
-import { VideoQuality } from 'livekit-client'
+  type ProcessorConfig,
+} from '@/features/rooms/livekit/components/blur/types'
 
 export type VideoResolution = 'h720' | 'h360' | 'h180'
 
@@ -20,19 +21,67 @@ export type LocalUserChoices = LocalUserChoicesLK & {
   videoSubscribeQuality?: VideoQuality
 }
 
+/**
+ * Mirrors `VideoQuality.HIGH` from livekit-client (LOW = 0, MEDIUM = 1,
+ * HIGH = 2). Duplicated so the enum's runtime value is not imported here;
+ * keep in sync if livekit-client ever renumbers it.
+ */
+const VIDEO_QUALITY_HIGH = 2 as VideoQuality
+
+/*
+ * Local equivalents of `loadUserChoices` / `saveUserChoices` from
+ * @livekit/components-core, same storage key and format, so existing
+ * preferences keep loading and LiveKit components stay compatible.
+ */
+const USER_CHOICES_KEY = 'lk-user-choices'
+
+const DEFAULT_LK_CHOICES: LocalUserChoicesLK = {
+  videoEnabled: true,
+  audioEnabled: true,
+  videoDeviceId: 'default',
+  audioDeviceId: 'default',
+  username: '',
+}
+
+function loadStoredChoices(): Partial<LocalUserChoices> {
+  try {
+    const raw = localStorage.getItem(USER_CHOICES_KEY)
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Partial<LocalUserChoices>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveStoredChoices(choices: LocalUserChoices) {
+  try {
+    // Same filtering as LiveKit: empty strings are not persisted.
+    const nonEmpty = Object.fromEntries(
+      Object.entries(choices).filter(([, value]) => value !== '')
+    )
+    localStorage.setItem(USER_CHOICES_KEY, JSON.stringify(nonEmpty))
+  } catch {
+    /* storage unavailable (private mode, quota): best effort */
+  }
+}
+
 function getUserChoicesState(): LocalUserChoices {
   return {
     noiseReductionEnabled: false,
     audioOutputDeviceId: 'default', // Use 'default' to match LiveKit's standard device selection behavior
     videoPublishResolution: 'h720',
-    videoSubscribeQuality: VideoQuality.HIGH,
-    ...loadUserChoices(),
+    videoSubscribeQuality: VIDEO_QUALITY_HIGH,
+    ...DEFAULT_LK_CHOICES,
+    ...loadStoredChoices(),
   }
 }
 
 export const userChoicesStore = proxy<LocalUserChoices>(getUserChoicesState())
 subscribe(userChoicesStore, () => {
-  saveUserChoices(userChoicesStore, false)
+  saveStoredChoices(userChoicesStore)
 })
 
 // we run some logic on store loading to check if the processor config is still valid

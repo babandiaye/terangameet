@@ -82,10 +82,13 @@ export const removeInvitee = (id: string, inviteeId: string) =>
   )
 
 export const inviteAll = (id: string, message?: string) =>
-  fetchApi<{ sent: number; failed: string[] }>(`/me/rooms/${id}/invite-all/`, {
-    method: 'POST',
-    body: JSON.stringify({ message }),
-  })
+  fetchApi<{ sent: number; failed: string[]; queued?: boolean }>(
+    `/me/rooms/${id}/invite-all/`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }
+  )
 
 /** Members of the platform matching a name or address, for the participant picker. */
 export const searchPeople = (roomId: string, q: string) =>
@@ -98,10 +101,20 @@ export const searchPeople = (roomId: string, q: string) =>
 export const fetchSchedule = () =>
   fetchApi<{ results: ScheduledMeeting[] }>('/me/schedule/')
 
-export const createScheduledMeeting = (body: ScheduleInput) =>
+/**
+ * `idempotencyKey`: the same for every attempt of one form — a retry after a
+ * timeout then gets the meeting already created, not a second one.
+ */
+export const createScheduledMeeting = (
+  body: ScheduleInput,
+  idempotencyKey?: string
+) =>
   fetchApi<{ meeting: ScheduledMeeting; mail: MailReport }>('/me/schedule/', {
     method: 'POST',
     body: JSON.stringify(body),
+    ...(idempotencyKey
+      ? { headers: { 'Idempotency-Key': idempotencyKey } }
+      : {}),
   })
 
 export const updateScheduledMeeting = (

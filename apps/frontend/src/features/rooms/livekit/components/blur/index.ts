@@ -2,18 +2,9 @@ import { ProcessorWrapper } from '@livekit/track-processors'
 import type { Track, TrackProcessor } from 'livekit-client'
 import { BackgroundCustomProcessor } from './BackgroundCustomProcessor'
 import { UnifiedBackgroundTrackProcessor } from './UnifiedBackgroundTrackProcessor'
-import { FaceLandmarksOptions } from './FaceLandmarksProcessor'
+import { ProcessorType, type ProcessorConfig } from './types'
 
-export enum ProcessorType {
-  BLUR = 'blur',
-  VIRTUAL = 'virtual',
-  FACE_LANDMARKS = 'faceLandmarks',
-}
-
-export type ProcessorConfig =
-  | { type: ProcessorType.BLUR; blurRadius: number }
-  | { type: ProcessorType.VIRTUAL; imagePath: string; fileId?: string }
-  | ({ type: ProcessorType.FACE_LANDMARKS } & FaceLandmarksOptions)
+export { ProcessorType, type ProcessorConfig } from './types'
 
 export interface BackgroundProcessorInterface extends TrackProcessor<Track.Kind> {
   update(opts: ProcessorConfig): Promise<void>

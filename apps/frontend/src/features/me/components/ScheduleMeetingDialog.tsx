@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Label } from 'react-aria-components'
 import { css } from '@/styled-system/css'
@@ -101,6 +101,8 @@ const ScheduleForm = ({
     )
   )
   const [report, setReport] = useState<MailReport | null>(null)
+  // One key per form: retrying after an error cannot create the meeting twice.
+  const idempotencyKey = useRef(crypto.randomUUID())
   const [created, setCreated] = useState<{
     meeting: ScheduledMeeting
     mail: MailReport
@@ -170,12 +172,15 @@ const ScheduleForm = ({
       }
       return meeting
         ? updateScheduledMeeting(meeting.id, body)
-        : createScheduledMeeting({
-            ...body,
-            ...(roomId !== 'new'
-              ? { room_id: roomId }
-              : { access_level: accessLevel }),
-          })
+        : createScheduledMeeting(
+            {
+              ...body,
+              ...(roomId !== 'new'
+                ? { room_id: roomId }
+                : { access_level: accessLevel }),
+            },
+            idempotencyKey.current
+          )
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['me', 'schedule'] })

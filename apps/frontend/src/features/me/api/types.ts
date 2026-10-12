@@ -160,6 +160,8 @@ export interface MailReport {
   sent: number
   failed: string[]
   via: 'google' | 'email'
+  /** Long lists are emailed in the background: `sent` is the number queued. */
+  queued?: boolean
 }
 
 export interface GoogleLink {
