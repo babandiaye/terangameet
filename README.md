@@ -10,7 +10,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.1.9** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.1.10** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -199,6 +199,11 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.1.10** — fin des correctifs urgents de l'audit : `POST /rooms/` sur une
+  salle existante applique la règle d'accès (plus de contournement de la salle
+  d'attente) ; une personne retirée d'une salle ou d'une réunion, ou dont la
+  réunion est annulée, perd l'entrée directe mais garde les enregistrements
+  faits pendant son inscription (`room_invitee_periods`).
 - **2.1.9** — correctifs de l'audit : invitations par email réservées aux
   organisateurs et quota quotidien de destinataires ; connexions SMTP
   réutilisées avec délais (fin des 504 à l'envoi) ; durée de conservation des
