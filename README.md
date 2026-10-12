@@ -10,7 +10,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.1.11** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.2.0** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -113,14 +113,34 @@ pnpm dev:frontend
 
 Ouvrir http://localhost:3000.
 
+## Tests
+
+```bash
+pnpm --filter @terangameet/backend run typecheck         # types (code + tests)
+pnpm --filter @terangameet/backend run test              # unitaires, sans base ni réseau
+pnpm --filter @terangameet/backend run test:integration  # routes HTTP réelles (supertest)
+```
+
+Les tests d'intégration tournent sur une base **dédiée** décrite dans
+`apps/backend/.env.test` (sur le serveur : `terangemeetv2_test`, rôle
+`meetv2_test`, Redis n° 15). Ils refusent de démarrer si la base ne se termine
+pas par `_test`. Ils couvrent les droits par route : entrée dans les salles et
+salle d'attente, invitations et quota, réunions programmées, enregistrements,
+console d'administration, CSRF. La CI GitHub (`.github/workflows/ci.yml`) lance
+la même chaîne, plus un audit des dépendances.
+
 ## Production
 
 Sur le serveur, déployer avec le script :
 
 ```bash
-deploy/deploy.sh                 # build front + back, publication, redémarrage
+deploy/deploy.sh                 # vérifications, build, publication, redémarrage
 deploy/deploy.sh --no-restart    # sans redémarrer le service
+deploy/deploy.sh --skip-checks   # urgence uniquement : sans vérifications
 ```
+
+Avant tout build, le script vérifie les types, lance les tests unitaires et
+d'intégration et le lint du frontend ; un échec arrête le déploiement.
 
 Il construit le frontend dans un répertoire temporaire puis **ajoute** les
 nouveaux fichiers à `apps/frontend/dist` sans supprimer les anciens, et remplace
@@ -128,7 +148,10 @@ nouveaux fichiers à `apps/frontend/dist` sans supprimer les anciens, et remplac
 fichiers au lieu d'afficher une page blanche ; si un fichier manque malgré tout,
 l'application se recharge d'elle-même (`vite:preloadError`, `src/main.tsx`). Les
 fichiers de plus de 7 jours absents du build courant sont supprimés. Le script
-redémarre ensuite `terangameetv2-backend` et attend qu'il réponde sur `/healthz`.
+redémarre ensuite `terangameetv2-backend` et attend qu'il réponde sur `/readyz`
+(processus, base et Redis). Le service tourne sous le compte système
+`terangameet`, durci ; supervision, alertes email et rattrapage LiveKit :
+`docs/SUPERVISION.md`. Actions attendues de la DITSI : `docs/DITSI-SECURITE.md`.
 
 Ne pas utiliser `pnpm build` sur le serveur de production : il vide `dist/`
 pendant que le site le sert.
@@ -199,6 +222,14 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.2.0** — fiabilité et exploitation (lot court terme de l'audit) :
+  39 tests d'intégration des routes sur une base dédiée et CI GitHub, le
+  déploiement s'arrête si un test échoue ; supervision avec alertes email et
+  `/readyz` ; service sous un compte système dédié et durci ; planification
+  transactionnelle, idempotente, emails en arrière-plan ; rattrapage LiveKit,
+  état « en cours d'arrêt » des enregistrements, salle d'attente atomique ;
+  chargement initial du site réduit de moitié, écran de récupération après une
+  erreur ; dépendances sans vulnérabilité élevée ni critique.
 - **2.1.11** — correctifs de la contre-analyse : une réunion ne retire de la
   salle que les personnes qu'elle y a ajoutées (jamais un ajout manuel ni un
   co-organisateur) ; mails de mise à jour seulement si la date ou l'heure
