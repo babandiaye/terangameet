@@ -14,47 +14,52 @@ const toSeries = (rows: Bucket[]) =>
   rows.map((r) => ({ bucket: r.bucket, count: Number(r.count) }));
 
 /**
- * One gap-filled series. Each range keeps its own bucket size: a 30-day window
- * counted per hour would be 720 unreadable bars, and 12 months counted per day
- * would be 365. The key names the window the reader picked, not the bucket.
+ * One gap-filled series per view: the last 30 days, the current week day by
+ * day (Monday to Sunday, ISO as date_trunc does), the last 12 months and every
+ * year since the first meeting.
  */
+const bucketed = (
+  unit: Prisma.Sql,
+  from: Prisma.Sql,
+  step: Prisma.Sql,
+  to: Prisma.Sql = Prisma.sql`date_trunc(${unit}, now())`,
+) => (metric: Prisma.Sql) => Prisma.sql`
+    WITH b AS (SELECT generate_series(${from}, ${to}, ${step}) AS bucket)
+    SELECT b.bucket, ${metric} AS count
+    FROM b LEFT JOIN meeting_sessions s ON date_trunc(${unit}, s."startedAt") = b.bucket
+    GROUP BY b.bucket ORDER BY b.bucket`;
+
 const SERIES_SQL = {
-  h24: (metric: Prisma.Sql) => Prisma.sql`
-    WITH b AS (SELECT generate_series(date_trunc('hour', now()) - interval '23 hours', date_trunc('hour', now()), interval '1 hour') AS bucket)
-    SELECT b.bucket, ${metric} AS count
-    FROM b LEFT JOIN meeting_sessions s ON date_trunc('hour', s."startedAt") = b.bucket
-    GROUP BY b.bucket ORDER BY b.bucket`,
-  d7: (metric: Prisma.Sql) => Prisma.sql`
-    WITH b AS (SELECT generate_series(date_trunc('day', now()) - interval '6 days', date_trunc('day', now()), interval '1 day') AS bucket)
-    SELECT b.bucket, ${metric} AS count
-    FROM b LEFT JOIN meeting_sessions s ON date_trunc('day', s."startedAt") = b.bucket
-    GROUP BY b.bucket ORDER BY b.bucket`,
-  d30: (metric: Prisma.Sql) => Prisma.sql`
-    WITH b AS (SELECT generate_series(date_trunc('day', now()) - interval '29 days', date_trunc('day', now()), interval '1 day') AS bucket)
-    SELECT b.bucket, ${metric} AS count
-    FROM b LEFT JOIN meeting_sessions s ON date_trunc('day', s."startedAt") = b.bucket
-    GROUP BY b.bucket ORDER BY b.bucket`,
-  m12: (metric: Prisma.Sql) => Prisma.sql`
-    WITH b AS (SELECT generate_series(date_trunc('month', now()) - interval '11 months', date_trunc('month', now()), interval '1 month') AS bucket)
-    SELECT b.bucket, ${metric} AS count
-    FROM b LEFT JOIN meeting_sessions s ON date_trunc('month', s."startedAt") = b.bucket
-    GROUP BY b.bucket ORDER BY b.bucket`,
+  day: bucketed(Prisma.sql`'day'`, Prisma.sql`date_trunc('day', now()) - interval '29 days'`, Prisma.sql`interval '1 day'`),
+  // The current week, Monday to Sunday, one bar per day; days still ahead show 0.
+  week: bucketed(
+    Prisma.sql`'day'`,
+    Prisma.sql`date_trunc('week', now())`,
+    Prisma.sql`interval '1 day'`,
+    Prisma.sql`date_trunc('week', now()) + interval '6 days'`,
+  ),
+  month: bucketed(Prisma.sql`'month'`, Prisma.sql`date_trunc('month', now()) - interval '11 months'`, Prisma.sql`interval '1 month'`),
+  year: bucketed(
+    Prisma.sql`'year'`,
+    Prisma.sql`COALESCE((SELECT date_trunc('year', min("startedAt")) FROM meeting_sessions), date_trunc('year', now()))`,
+    Prisma.sql`interval '1 year'`,
+  ),
 } as const;
 
-const SERIES_RANGES = ["h24", "d7", "d30", "m12"] as const;
+const SERIES_RANGES = ["day", "week", "month", "year"] as const;
 const COUNT_MEETINGS = Prisma.sql`count(s.id)::int`;
 const COUNT_CREATORS = Prisma.sql`count(distinct s."creatorId")::int`;
 
-/** The four ranges of one metric, fetched concurrently. */
+/** The four bucket sizes of one metric, fetched concurrently. */
 async function seriesSet(metric: Prisma.Sql) {
-  const [h24, d7, d30, m12] = await Promise.all(
+  const [day, week, month, year] = await Promise.all(
     SERIES_RANGES.map((r) => prisma.$queryRaw<Bucket[]>(SERIES_SQL[r](metric))),
   );
   return {
-    h24: toSeries(h24),
-    d7: toSeries(d7),
-    d30: toSeries(d30),
-    m12: toSeries(m12),
+    day: toSeries(day),
+    week: toSeries(week),
+    month: toSeries(month),
+    year: toSeries(year),
   };
 }
 

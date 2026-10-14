@@ -35,18 +35,19 @@ export const formatClock = (iso: string | null | undefined): string => {
 /** Label a time-bucket for the dashboard charts, per the selected range. */
 export const formatBucket = (
   iso: string,
-  range: 'h24' | 'd7' | 'd30' | 'm12'
+  range: 'day' | 'week' | 'month' | 'year'
 ): string => {
   const d = new Date(iso)
-  if (range === 'h24')
-    return d
-      .toLocaleTimeString('fr-FR', { hour: '2-digit' })
-      .replace(':00', 'h')
-  if (range === 'd7') return d.toLocaleDateString('fr-FR', { weekday: 'short' })
-  // Over 30 daily buckets weekday names would repeat four times, so date them.
-  if (range === 'd30')
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-  return d.toLocaleDateString('fr-FR', { month: 'short' })
+  if (range === 'year') return String(d.getUTCFullYear())
+  if (range === 'month')
+    return d.toLocaleDateString('fr-FR', { month: 'short', timeZone: 'UTC' })
+  if (range === 'week')
+    return d.toLocaleDateString('fr-FR', { weekday: 'short', timeZone: 'UTC' })
+  return d.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'UTC',
+  })
 }
 
 /** Compact relative time, e.g. "il y a 5 min", "il y a 2 h". */

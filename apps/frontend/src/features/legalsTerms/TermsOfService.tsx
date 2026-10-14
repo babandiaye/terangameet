@@ -194,7 +194,17 @@ const TermsOfServiceRoute = () => {
 
         {/* Article 8 */}
         <H lvl={2}>{t('articles.article8.title')}</H>
-        <P>{t('articles.article8.content')}</P>
+        <P>
+          {t('articles.article8.content')}{' '}
+          <A href="https://www.cdp.sn/" target="_blank" color="primary">
+            www.cdp.sn
+          </A>
+          .
+        </P>
+
+        {/* Article 9 */}
+        <H lvl={2}>{t('articles.article9.title')}</H>
+        <P>{t('articles.article9.content')}</P>
       </HStack>
     </Screen>
   )

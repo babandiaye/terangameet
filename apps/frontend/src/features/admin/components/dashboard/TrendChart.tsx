@@ -13,24 +13,27 @@ import { css } from '@/styled-system/css'
 import type { SeriesRange, SeriesPoint } from '../../api/types'
 import { formatBucket } from '@/components/console/utils'
 
-// The toggle names the window you are looking at; the chart title names the
-// bucket inside it. Saying both removes the old ambiguity of a control labelled
-// "Jour" that actually drew one bar per hour.
+// The button names the view and the title says what each bar counts.
 const RANGE_LABEL: Record<SeriesRange, string> = {
-  h24: '24 h',
-  d7: '7 jours',
-  d30: '1 mois',
-  m12: '12 mois',
+  day: 'Jour',
+  week: 'Semaine',
+  month: 'Mois',
+  year: 'Année',
 }
-// The bucket the title names. d7 and d30 share it: both are counted per day,
-// they differ only in how far back they reach.
 const RANGE_BUCKET: Record<SeriesRange, string> = {
-  h24: 'heure',
-  d7: 'jour',
-  d30: 'jour',
-  m12: 'mois',
+  day: 'jour',
+  week: 'jour de la semaine',
+  month: 'mois',
+  year: 'année',
 }
-const RANGES: SeriesRange[] = ['h24', 'd7', 'd30', 'm12']
+// How far back each bucket size reaches, for screen readers.
+const RANGE_SPAN: Record<SeriesRange, string> = {
+  day: 'les 30 derniers jours',
+  week: 'la semaine en cours',
+  month: 'les 12 derniers mois',
+  year: 'depuis la mise en service',
+}
+const RANGES: SeriesRange[] = ['day', 'week', 'month', 'year']
 
 export const TrendChart = ({
   title,
@@ -43,12 +46,16 @@ export const TrendChart = ({
   color: string
   valueLabel: string
 }) => {
-  const [range, setRange] = useState<SeriesRange>('d7')
+  const [range, setRange] = useState<SeriesRange>('day')
   const data = series[range].map((p) => ({
     label: formatBucket(p.bucket, range),
     count: p.count,
   }))
   const total = data.reduce((n, p) => n + p.count, 0)
+  // Size the value axis to its widest label so 3- and 4-digit counts are not
+  // clipped: about 7px per digit at 11px, plus room for the tick gap.
+  const max = data.reduce((m, p) => Math.max(m, p.count), 0)
+  const yAxisWidth = 14 + 7 * String(max).length
 
   return (
     <div
@@ -113,14 +120,14 @@ export const TrendChart = ({
           the shape of the series; the tooltip stays for pointer users. */}
       <div
         role="img"
-        aria-label={`${title} par ${RANGE_BUCKET[range]} sur ${RANGE_LABEL[range]} — ${total} ${valueLabel} au total`}
+        aria-label={`${title} par ${RANGE_BUCKET[range]} sur ${RANGE_SPAN[range]} — ${total} ${valueLabel} au total`}
         className={css({ width: '100%', height: '230px' })}
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
-            margin={{ top: 5, right: 8, left: -22, bottom: 0 }}
-            barCategoryGap="30%"
+            margin={{ top: 5, right: 8, left: 0, bottom: 0 }}
+            barCategoryGap="10%"
           >
             {/* Solid hairline: dashed rules read as data next to bars. */}
             <CartesianGrid
@@ -141,7 +148,7 @@ export const TrendChart = ({
               tick={{ fontSize: 11, fill: token('colors.console.chart-tick') }}
               axisLine={false}
               tickLine={false}
-              width={34}
+              width={yAxisWidth}
             />
             <Tooltip
               content={<ChartTooltip valueLabel={valueLabel} />}
@@ -149,7 +156,7 @@ export const TrendChart = ({
             />
             {/* Square caps: a rounded top eats into the bar's height, which
                 makes short bars read lower than they are. */}
-            <Bar dataKey="count" fill={color} maxBarSize={24} />
+            <Bar dataKey="count" fill={color} maxBarSize={40} />
           </BarChart>
         </ResponsiveContainer>
       </div>

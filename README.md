@@ -1,5 +1,7 @@
 # TerangaMeet v2
 
+[![CI](https://github.com/babandiaye/terangameet/actions/workflows/ci.yml/badge.svg)](https://github.com/babandiaye/terangameet/actions/workflows/ci.yml)
+
 Visioconférence de l'Université Numérique Cheikh Hamidou Kane (UN-CHK), réécrite en
 **Node.js + React** dans un monorepo **pnpm** unique (sans conteneurs), sur la base du
 projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
@@ -10,7 +12,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.2.0** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.2.1** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -19,19 +21,25 @@ En plus du périmètre de Meet :
 - **Agenda** (Mon espace, activé par un administrateur) : planifier une
   réunion à une date — titre, horaires, salle, type d'accès, invités,
   co-animateurs —, aussi depuis le menu « Créer une réunion ». Chaque invité
-  reçoit une invitation d'agenda (.ics) que Gmail ajoute à son Google Agenda
-  avec le lien ; modification et annulation suivent.
+  reçoit une invitation d'agenda (.ics, organisateur « Nom via TerangaMeet »)
+  que Gmail ajoute à son Google Agenda avec le lien (Oui / Non / Peut-être) ;
+  le créateur la reçoit déjà acceptée. Une modification n'écrit à tous que si
+  la date ou l'heure change ; l'annulation retire l'événement des agendas.
+  Au-delà de 20 invités, l'envoi se poursuit en arrière-plan ; une création
+  rejouée (clé d'idempotence) ne crée pas de doublon.
 - **Google Agenda relié** (optionnel) : chaque utilisateur peut relier son
   Google Agenda ; ses réunions y sont créées directement, Google envoie les
   invitations et les réponses remontent dans TerangaMeet. Nécessite un client
   OAuth « Interne » (variables `GOOGLE_OAUTH_CLIENT_ID`,
   `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_TOKEN_KEY`).
 - **Salles de réunion** (Mon espace) : les salles qu'on organise, avec titre,
-  type d'accès et **participants prévus** ajoutés à la Google Agenda (on tape
-  un nom, la plateforme suggère ses membres, un clic ajoute ; une adresse
-  d'une personne pas encore inscrite est acceptée). Co-organisateurs permanents,
-  invitation groupée par email. Les administrateurs éditent toutes les salles
-  et sont seuls à pouvoir en supprimer.
+  type d'accès et **participants prévus** (on tape un nom, la plateforme
+  suggère ses membres comme Google Agenda, un clic ajoute ; une adresse d'une
+  personne pas encore inscrite est acceptée). Co-organisateurs permanents,
+  invitation groupée par email. Les invités d'une réunion programmée rejoignent
+  la liste ; une réunion ne retire que ceux qu'elle y a ajoutés. Les
+  administrateurs éditent toutes les salles et sont seuls à pouvoir en
+  supprimer.
 - **Nom de réunion** : à la création, un titre facultatif (« Commission des
   marchés – ouverture des plis ») ; le lien reste un code aléatoire
   (`ryf-lqxd-dtu`). Le titre s'affiche en bas à gauche de la barre de réunion
@@ -40,8 +48,13 @@ En plus du périmètre de Meet :
   participants voient le changement immédiatement.
 - **Modération** : co-animateurs promus pour la durée de la séance, fin de la
   réunion pour tout le monde, restriction micro / caméra / partage d'écran.
-- **Enregistrements** : stockés dans un bucket MinIO privé, lus sur place ou
-  téléchargés via le backend (contrôle d'accès en base), purge automatique
+- **Enregistrements** : stockés dans le bucket MinIO privé
+  `terangameetv2-recordings`, lus sur place ou téléchargés via le backend.
+  Visibles par : la personne qui l'a lancé, les présents à la séance, le
+  propriétaire et les co-organisateurs de la salle (tous, même absents), les
+  participants prévus (ceux faits depuis leur ajout ; une personne retirée
+  garde ceux de sa période d'inscription) et les administrateurs ; jamais les
+  invités sans compte. Purge automatique
   configurable (1 mois à 1 an) — **désactivée en production pour le moment**
   (`PURGE_RECORDINGS_ENABLED=false`) ; la durée choisie est gardée en base.
 - **Invitations par email** (SMTP) depuis la fenêtre de partage, réservées à
@@ -59,17 +72,23 @@ En plus du périmètre de Meet :
 
 ```
 /opt/terangameetv2
+├── .github/workflows/ci.yml   # CI : types, tests, lint, build, audit
 ├── apps/
 │   ├── frontend/   # React + Vite (design Meet), proxy /api → backend en dev
 │   └── backend/    # Express + TS + Prisma ; sert aussi le SPA en production
+│       ├── src/                # routes/, services/, lib/ (règles pures testées)
+│       ├── prisma/             # schéma et migrations
+│       └── test/integration/   # tests des routes (base *_test dédiée)
 ├── deploy/
 │   ├── deploy.sh           # déploiement en production (voir ci-dessous)
+│   ├── backup/             # sauvegarde nocturne (script + timer systemd)
+│   ├── monitoring/         # supervision et alertes email (script + timer)
 │   ├── errors/             # pages 502 / 504 servies par nginx
 │   ├── nginx/              # modèle du vhost
-│   └── terangameetv2-backend.service   # unité systemd
-├── docs/                 # analyse, design system, notes d'exploitation
-├── pnpm-workspace.yaml   # nodeLinker: hoisted (compat frontend npm)
-└── package.json          # scripts dev/build/start
+│   └── terangameetv2-backend.service   # unité systemd durcie
+├── docs/                 # exploitation, sécurité, design system, analyses
+├── pnpm-workspace.yaml   # nodeLinker: hoisted, overrides de sécurité
+└── package.json          # scripts dev/build/start, pnpm figé (packageManager)
 ```
 
 Le frontend appelle son **propre origine** (`/api/v1.0/...`) ; en dev, Vite proxifie
@@ -78,29 +97,55 @@ le SPA construit et l'API sur le même origine (`SERVE_FRONTEND=true`).
 
 ## Prérequis
 
-- Node.js ≥ 22, pnpm (installés en global dans `/usr/bin`)
-- PostgreSQL et Redis accessibles (ici réutilisés depuis les conteneurs `meet-*`)
-- Un serveur LiveKit (ex. `livekit.example.com`)
+- Node.js 22 (`.nvmrc`), pnpm 11 (`packageManager`)
+- PostgreSQL 16 et Redis accessibles (ici réutilisés depuis les conteneurs
+  `meet-*`, partagés avec l'ancien Meet)
+- Un serveur LiveKit avec Egress (enregistrements) et un stockage S3 (MinIO)
+- Un serveur SMTP (invitations, alertes)
 
 ## Configuration
 
-Copier l'exemple et ajuster :
+Trois fichiers, jamais commités (`.gitignore`) :
+
+| Fichier | Usage | Lu par |
+|---|---|---|
+| `apps/backend/.env.production` | production (600) | systemd (`EnvironmentFile`) — seul, dotenv n'est pas chargé en production |
+| `apps/backend/.env` | développement — **jamais les secrets de production** | dotenv, hors production |
+| `apps/backend/.env.test` | tests d'intégration (base `*_test`, Redis ≥ 10) | `test/integration/env.ts` |
 
 ```bash
-cp apps/backend/.env.example apps/backend/.env
+cp apps/backend/.env.example apps/backend/.env   # puis ajuster
 ```
 
-Variables clés (voir `.env.example`) : `DATABASE_URL`, `REDIS_URL`, `SESSION_SECRET`,
-OIDC (`KEYCLOAK_HOST`, `REALM_NAME`, `OIDC_RP_CLIENT_ID`, `OIDC_RP_CLIENT_SECRET`),
-LiveKit (`LIVEKIT_API_KEY/SECRET/URL/WS_URL`), et les flags `RECORDING_ENABLE`,
-`FILE_UPLOAD_ENABLED`, `ROOM_SUBTITLE_ENABLED`, `ROOM_TELEPHONY_ENABLED`.
+Variables clés (liste complète et valeurs par défaut : `src/config/env.ts`, qui
+refuse de démarrer en production avec des secrets faibles) :
+
+- **Base** : `DATABASE_URL`, `REDIS_URL`, `SESSION_SECRET`, `APP_BASE_URL`,
+  `TRUST_PROXY`.
+- **SENID (OIDC)** : `KEYCLOAK_HOST`, `REALM_NAME`, `OIDC_RP_CLIENT_ID`,
+  `OIDC_RP_CLIENT_SECRET` ; `ADMIN_EMAILS` (administrateurs d'office).
+- **LiveKit et stockage** : `LIVEKIT_API_KEY/SECRET/URL/WS_URL`,
+  `AWS_S3_ENDPOINT_URL`, `AWS_RECORDING_BUCKET_NAME`.
+- **Emails** : `SMTP_HOST/PORT/USER/PASSWORD/FROM`,
+  `INVITE_DAILY_RECIPIENT_QUOTA` (500), `ALERT_EMAILS` (alertes de
+  supervision, sinon `ADMIN_EMAILS`).
+- **Fonctions** : `RECORDING_ENABLE`, `PURGE_RECORDINGS_ENABLED`,
+  `PURGE_RECORDINGS_PERIOD`, `ALLOW_UNREGISTERED_ROOMS`,
+  `RESOURCE_DEFAULT_ACCESS_LEVEL`, `FILE_UPLOAD_ENABLED`,
+  `ROOM_SUBTITLE_ENABLED`, `ROOM_TELEPHONY_ENABLED`.
+- **Google Agenda** (optionnel) : `GOOGLE_OAUTH_CLIENT_ID`,
+  `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_TOKEN_KEY`.
 
 ## Installation
 
 ```bash
-pnpm install
-pnpm --filter @terangameet/backend exec prisma migrate deploy   # ou: prisma migrate dev
+pnpm install --frozen-lockfile
+pnpm --filter @terangameet/backend exec prisma migrate deploy
 ```
+
+`prisma migrate dev` seulement sur une base de développement : il peut
+proposer de vider la base. En production, les migrations sont appliquées par
+`deploy/deploy.sh` (`migrate deploy`, jamais de reset).
 
 ## Développement
 
@@ -111,7 +156,8 @@ pnpm dev:backend
 pnpm dev:frontend
 ```
 
-Ouvrir http://localhost:3000.
+Ouvrir http://localhost:3000. Le développement demande sa propre base et son
+propre Redis dans `apps/backend/.env` : ne jamais pointer sur la production.
 
 ## Tests
 
@@ -189,6 +235,25 @@ aussi la salle d'attente aux invités sans compte. Règle unique, testée :
 prévus sont reconnus par l'email de leur compte SenID. Un code de salle
 inexistant est refusé (`ALLOW_UNREGISTERED_ROOMS=false`).
 
+## Supervision
+
+Toutes les 5 minutes, une vérification (service, base, Redis, site public,
+sauvegarde, disques, certificat TLS) envoie un **email d'alerte** quand un
+état change ; le service et la sauvegarde préviennent aussi en cas d'échec.
+Points de santé : `/healthz` (processus) et `/readyz` (base et Redis). Le
+backend rattrape toutes les 10 minutes les événements LiveKit perdus
+(enregistrements, séances). Détails : `docs/SUPERVISION.md`.
+
+## Documentation
+
+| Document | Contenu |
+|---|---|
+| `docs/SUPERVISION.md` | alertes, points de santé, service durci, rattrapage LiveKit, déploiement |
+| `docs/SAUVEGARDES.md` | sauvegardes, Bacula, restauration |
+| `docs/DITSI-SECURITE.md` | actions attendues de la DITSI (Redis, Postgres, sonde, Bacula, OAuth, certificat) |
+| `docs/DESIGN-SYSTEM.md` | charte et jetons de l'interface |
+| `docs/ANALYSE.md`, `docs/REFONTE-MON-ESPACE.md`, `docs/MAJ-LIVEKIT.md` | analyses et notes de conception |
+
 ## Sauvegardes
 
 Chaque nuit à 02:00, la base et la configuration sont sauvegardées dans
@@ -196,6 +261,8 @@ Chaque nuit à 02:00, la base et la configuration sont sauvegardées dans
 contrôle. Détails, Bacula et procédures de restauration : `docs/SAUVEGARDES.md`.
 
 ## Contrat d'API (principaux endpoints)
+
+Hors API : `GET /healthz` (vivacité), `GET /readyz` (base et Redis, 503 sinon).
 
 Sous `/api/v1.0/` :
 
@@ -209,8 +276,8 @@ Sous `/api/v1.0/` :
 - **Enregistrement** : `rooms/:id/{start-recording,stop-recording,start-subtitle}/`,
   `recordings/`, `recordings/:id`, `recordings/:id/media/`.
 - **Notes et invitations** : `rooms/:id/notes/` (GET/PUT), `rooms/:id/invite/`.
-- **Agenda** : `me/schedule/` (GET/POST), `me/schedule/:id/`
-  (GET/PATCH/DELETE), `me/schedule/people/` ; Google Agenda :
+- **Agenda** : `me/schedule/` (GET/POST, en-tête `Idempotency-Key` accepté),
+  `me/schedule/:id/` (GET/PATCH/DELETE), `me/schedule/people/` ; Google Agenda :
   `me/google/` (GET/DELETE), `me/google/connect/`, `me/google/callback/` ;
   réglage `admin/settings/calendar/` (GET/PUT).
 - **Mon espace** : `me/{dashboard,meetings,meetings/:id,recordings}/` ;
@@ -222,6 +289,12 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.2.1** — adaptation à l'UNCHK et tableau de bord : mentions légales,
+  conditions d'utilisation et déclaration d'accessibilité réécrites pour l'UNCHK
+  (éditeur DITSI, contact support@unchk.edu.sn, données personnelles et renvoi
+  vers la CDP) ; aide du partage d'écran renvoyant au support UNCHK ; graphiques
+  du tableau de bord par jour, jour de la semaine, mois et année, chiffres de
+  l'axe plus coupés ; README mis à jour.
 - **2.2.0** — fiabilité et exploitation (lot court terme de l'audit) :
   39 tests d'intégration des routes sur une base dédiée et CI GitHub, le
   déploiement s'arrête si un test échoue ; supervision avec alertes email et

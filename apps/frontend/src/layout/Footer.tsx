@@ -250,7 +250,7 @@ export const Footer = () => {
               externalIcon
               underline={false}
               footer="minor"
-              href="https://docs.numerique.gouv.fr/docs/168d7e8e-3f09-462d-8bbc-ea95dedd3889/"
+              href="https://www.cdp.sn/"
               aria-label={t('links.data') + ' - ' + t('links.ariaLabel')}
             >
               {t('links.data')}

@@ -4,6 +4,10 @@ import { css } from '@/styled-system/css'
 import { HStack } from '@/styled-system/jsx'
 import { useTranslation } from 'react-i18next'
 
+const SUPPORT_EMAIL = 'support@unchk.edu.sn'
+const CDP_URL = 'https://www.cdp.sn/'
+const SOURCE_URL = 'https://github.com/suitenumerique/meet'
+
 const LegalTermsRoute = () => {
   const { t } = useTranslation('legals')
 
@@ -23,13 +27,10 @@ const LegalTermsRoute = () => {
         <P className={indentedStyle}>
           {t('creator.contact.address')}
           <br />
-          {t('creator.contact.city')}
-          <br />
-          {t('creator.contact.phone')}
-          <br />
-          {t('creator.contact.siret')}
-          <br />
-          {t('creator.contact.siren')}
+          {t('creator.contact.email')}{' '}
+          <A href={`mailto:${SUPPORT_EMAIL}`} color="primary">
+            {SUPPORT_EMAIL}
+          </A>
         </P>
 
         {/* Directeur de la publication section */}
@@ -39,6 +40,23 @@ const LegalTermsRoute = () => {
         {/* Hébergement section */}
         <H lvl={2}>{t('hosting.title')}</H>
         <P>{t('hosting.body')}</P>
+
+        {/* Données personnelles section */}
+        <H lvl={2}>{t('data.title')}</H>
+        <P>
+          {t('data.body')}{' '}
+          <A href={`mailto:${SUPPORT_EMAIL}`} color="primary">
+            {SUPPORT_EMAIL}
+          </A>
+          .
+        </P>
+        <P>
+          {t('data.authority')}{' '}
+          <A href={CDP_URL} target="_blank" color="primary">
+            www.cdp.sn
+          </A>
+          .
+        </P>
 
         {/* Accessibilité section */}
         <H lvl={2}>{t('accessibility.title')}</H>
@@ -54,20 +72,16 @@ const LegalTermsRoute = () => {
           <Bold>{t('accessibility.status')}</Bold>
         </P>
 
-        {/* Réutilisation des contenus et liens section */}
+        {/* Propriété intellectuelle section */}
         <H lvl={2}>{t('reuse.title')}</H>
+        <P>{t('reuse.body1')}</P>
         <P>
-          {t('reuse.body1')}{' '}
-          <A
-            href="https://www.etalab.gouv.fr/wp-content/uploads/2017/04/ETALAB-Licence-Ouverte-v2.0.pdf"
-            color="primary"
-          >
-            {t('reuse.license')}
+          {t('reuse.body2')}{' '}
+          <A href={SOURCE_URL} target="_blank" color="primary">
+            {SOURCE_URL.replace('https://', '')}
           </A>
           .
         </P>
-        <P>{t('reuse.body2')}</P>
-        <P>{t('reuse.body3')}</P>
       </HStack>
     </Screen>
   )

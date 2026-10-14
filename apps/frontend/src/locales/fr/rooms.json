@@ -160,10 +160,10 @@
       "title": "Impossible de partager votre écran",
       "ariaLabel": "Impossible de partager votre écran",
       "message": "Il se peut que votre navigateur ne soit pas autorisé à enregistrer l'écran sur votre ordinateur.",
-      "macInstructions": "Accèdez à vos",
+      "macInstructions": "Accédez à vos",
       "macSystemPreferences": "Préférences système",
-      "helpLinkText": "Pour en savoir plus, consulter",
-      "helpLinkLabel": "Problème de présentation",
+      "helpLinkText": "Si le problème persiste, contactez le support de l'UNCHK :",
+      "helpLinkLabel": "Écrire au support : {{email}}",
       "closeButton": "Ignorer",
       "newTab": "Nouvelle fenêtre"
     }

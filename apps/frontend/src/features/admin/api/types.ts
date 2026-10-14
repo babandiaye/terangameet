@@ -51,11 +51,8 @@ export interface AdminRecording {
 
 export type { Paginated } from '@/api/query'
 
-/**
- * Chart windows. Each keeps its own bucket size — d7 and d30 are both daily,
- * so naming these by bucket ('day') could not tell them apart.
- */
-export type SeriesRange = 'h24' | 'd7' | 'd30' | 'm12'
+/** Chart bucket sizes: each bar counts one day, week, month or year. */
+export type SeriesRange = 'day' | 'week' | 'month' | 'year'
 
 export interface SeriesPoint {
   bucket: string

@@ -1,37 +1,37 @@
 {
-  "title": "Mentions Légales",
+  "title": "Mentions légales",
   "creator": {
     "title": "Éditeur",
-    "body": "Le service Visio est édité par la Direction interministérielle du numérique de l'Etat (DINUM) située :",
+    "body": "TerangaMeet est édité par l'Université numérique Cheikh Hamidou Kane (UNCHK), Direction des infrastructures technologiques et des systèmes d'information (DITSI).",
     "contact": {
       "title": "Coordonnées",
-      "address": "20 avenue de Ségur",
-      "city": "75007 Paris",
-      "phone": "Tel. Accueil : 01.71.21.01.70",
-      "siret": "SIRET : 12000101100010 (secrétariat général du gouvernement)",
-      "siren": "SIREN : 120 001 011"
+      "address": "Cité du savoir – Diamniadio, Castors, avenue Bourguiba, rue n°13",
+      "email": "E-mail :"
     }
   },
   "director": {
     "title": "Directeur de la publication",
-    "body": "La directrice de la publication est Madame Stéphanie Schaer, Directrice interministérielle du numérique."
+    "body": "Le directeur de la publication est le Directeur des infrastructures technologiques et des systèmes d'information (DITSI) de l'UNCHK."
   },
   "hosting": {
     "title": "Hébergement",
-    "body": "Le service est hébergé par Outscale West-1 CloudGouv SecNumCloud situé en France."
+    "body": "Le service est hébergé sur l'infrastructure de l'UNCHK, administrée par la DITSI, au Sénégal."
+  },
+  "data": {
+    "title": "Données personnelles",
+    "body": "Les données personnelles traitées par TerangaMeet (identité issue du compte SENID, adresse e-mail, participation aux réunions et, le cas échéant, enregistrements) le sont conformément à la loi n° 2008-12 du 25 janvier 2008 sur la protection des données à caractère personnel. Pour exercer vos droits d'accès, de rectification ou d'opposition, écrivez à",
+    "authority": "Pour toute information sur vos droits, ou pour introduire une réclamation, consultez la Commission de protection des données personnelles (CDP) :"
   },
   "accessibility": {
     "title": "Accessibilité",
-    "body": "La conformité aux normes d'accessibilité numérique est un objectif ultérieur. Le site n'a pas encore été audité. Cependant, l'équipe s'efforce de créer un site accessible à tous en suivant les recommandations du RGAA.",
+    "body": "Le site n'a pas encore fait l'objet d'un audit d'accessibilité. L'équipe s'efforce néanmoins de le rendre accessible à tous en suivant les recommandations du W3C (WCAG 2.1).",
     "more": "Pour en savoir plus : ",
-    "link": "lien vers la page d'accessibilité",
-    "status": "Etat d'accessibilité : non conforme"
+    "link": "déclaration d'accessibilité",
+    "status": "État d'accessibilité : non audité"
   },
   "reuse": {
-    "title": "Réutilisation des contenus et liens",
-    "body1": "Sauf mention explicite de propriété intellectuelle détenue par des tiers, les contenus de ce site sont proposés sous ",
-    "license": "licence ouverte Etalab 2.0",
-    "body2": "Vous êtes notamment libres de les reproduire, copier, modifier, extraire, transformer, communiquer diffuser, redistribuer, publier, transmettre et exploiter sous réserve de mentionner leur source, leur date de dernière mise à jour et ne pas induire en erreur des tiers quant aux informations qui y figurent.",
-    "body3": "Tout site public ou privé est autorisé à établir, sans autorisation préalable, un lien (y compris profond) vers les informations diffusées sur ce site."
+    "title": "Propriété intellectuelle",
+    "body1": "Les contenus de ce site (textes, logos, images) sont la propriété de l'UNCHK, sauf mention contraire. Toute reproduction ou réutilisation nécessite son autorisation préalable.",
+    "body2": "TerangaMeet est basé sur le logiciel libre Meet de La Suite numérique, distribué sous licence MIT :"
   }
 }

@@ -2,6 +2,8 @@ import { A, Button, Dialog, P } from '@/primitives'
 import { useTranslation } from 'react-i18next'
 import { css } from '@/styled-system/css'
 
+const SUPPORT_EMAIL = 'support@unchk.edu.sn'
+
 // todo - refactor it into a generic system
 export const ScreenShareErrorModal = ({
   isOpen,
@@ -41,12 +43,11 @@ export const ScreenShareErrorModal = ({
               )}
               {t('helpLinkText')}{' '}
               <A
-                href="https://lasuite.crisp.help/fr/article/visio-probleme-de-presentation-1xkf799/"
-                aria-label={t('helpLinkLabel') + '-' + t('newTab')}
-                target="_blank"
+                href={`mailto:${SUPPORT_EMAIL}`}
+                aria-label={t('helpLinkLabel', { email: SUPPORT_EMAIL })}
                 color="primary"
               >
-                {t('helpLinkLabel')}
+                {SUPPORT_EMAIL}
               </A>
               .
             </P>
