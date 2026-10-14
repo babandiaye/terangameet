@@ -75,6 +75,7 @@ inviteRouter.post(
       recipients.map((to) =>
         sendMail({
           to,
+          sender: { name: req.user!.fullName, email: req.user!.email },
           subject: `${inviter} vous invite à une réunion TerangaMeet`,
           text: buildText({ inviter, url, roomLabel, customMessage }),
           html: buildHtml({ inviter, url, roomLabel, customMessage }),

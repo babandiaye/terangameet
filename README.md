@@ -12,7 +12,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.2.1** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.2.2** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -23,7 +23,8 @@ En plus du périmètre de Meet :
   co-animateurs —, aussi depuis le menu « Créer une réunion ». Chaque invité
   reçoit une invitation d'agenda (.ics, organisateur « Nom via TerangaMeet »)
   que Gmail ajoute à son Google Agenda avec le lien (Oui / Non / Peut-être) ;
-  le créateur la reçoit déjà acceptée. Une modification n'écrit à tous que si
+  le créateur la reçoit déjà acceptée. Le mail est signé du nom de la
+  personne qui invite et « Répondre » lui écrit directement. Une modification n'écrit à tous que si
   la date ou l'heure change ; l'annulation retire l'événement des agendas.
   Au-delà de 20 invités, l'envoi se poursuit en arrière-plan ; une création
   rejouée (clé d'idempotence) ne crée pas de doublon.
@@ -289,6 +290,11 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.2.2** — invitations au nom de l'organisateur : expéditeur affiché
+  « Nom via TerangaMeet » (adresse d'envoi inchangée, le domaine unchk.edu.sn
+  refusant tout autre serveur), réponses dirigées vers la personne qui invite
+  (Reply-To) ; vaut pour les réunions programmées, les invitations depuis une
+  salle et « Inviter tous les participants ».
 - **2.2.1** — adaptation à l'UNCHK et tableau de bord : mentions légales,
   conditions d'utilisation et déclaration d'accessibilité réécrites pour l'UNCHK
   (éditeur DITSI, contact support@unchk.edu.sn, données personnelles et renvoi

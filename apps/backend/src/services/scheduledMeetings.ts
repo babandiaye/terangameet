@@ -8,7 +8,7 @@ import { prisma } from '../lib/prisma'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
 import { buildIcs } from '../lib/ics'
-import { sendMail } from '../lib/mailer'
+import { sendMail, type MailSender } from '../lib/mailer'
 import { scheduleHtml, scheduleSubject, scheduleText, type ScheduleMailKind } from '../lib/scheduleMail'
 import { getRole } from './rooms'
 import { accountNames } from './people'
@@ -36,12 +36,13 @@ export const BACKGROUND_MAIL_THRESHOLD = 20
 export async function deliverInvitations(
   m: MeetingWithRelations,
   kind: ScheduleMailKind,
-  recipients: string[]
+  recipients: string[],
+  sender?: MailSender
 ): Promise<MailReport> {
   if (recipients.length <= BACKGROUND_MAIL_THRESHOLD) {
-    return { ...(await sendInvitations(m, kind, recipients)), via: 'email' }
+    return { ...(await sendInvitations(m, kind, recipients, sender)), via: 'email' }
   }
-  void sendInvitations(m, kind, recipients)
+  void sendInvitations(m, kind, recipients, sender)
     .then((r) => {
       if (r.failed.length) logger.warn(`[schedule] ${kind} ${m.id}: ${r.failed.length} mail(s) failed in background`)
     })
@@ -129,7 +130,9 @@ export async function visibleMeeting(id: string, user: User): Promise<MeetingWit
 export async function sendInvitations(
   m: MeetingWithRelations,
   kind: ScheduleMailKind,
-  recipients: string[]
+  recipients: string[],
+  // Whoever acts (a co-host editing the meeting signs it); the organiser by default.
+  sender: MailSender = { name: m.organizer.fullName, email: m.organizer.email }
 ): Promise<{ sent: number; failed: string[] }> {
   const organizerEmail = m.organizer.email!.toLowerCase()
   const names = await accountNames(m.attendees.map((a) => a.email))
@@ -163,6 +166,7 @@ export async function sendInvitations(
     url: roomUrl(m.room),
   }
   const mail = {
+    sender,
     subject: scheduleSubject(content),
     text: scheduleText(content),
     html: scheduleHtml(content),

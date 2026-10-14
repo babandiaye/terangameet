@@ -298,6 +298,7 @@ myRoomsRouter.post('/:roomId/invite-all/', inviteLimiter, async (req, res) => {
   const inviter = req.user!.fullName || req.user!.email || 'Un organisateur'
   const content = { inviter, url, roomLabel: found.room.name, customMessage: message.data || undefined }
   const mail = {
+    sender: { name: req.user!.fullName, email: req.user!.email },
     subject: `${inviter} vous invite à la réunion « ${found.room.name} »`,
     text: buildText(content),
     html: buildHtml(content),

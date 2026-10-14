@@ -266,7 +266,7 @@ async function createMeeting(req: Request, res: Response, claim: idempotency.Cla
       )
     }
   }
-  mail ??= await deliverInvitations(created, 'new', guests)
+  mail ??= await deliverInvitations(created, 'new', guests, user)
   logger.info(`[schedule] ${user.email} planned ${created.id} with ${guests.length} guest(s) via ${mail.via}`)
   return res.status(201).json({ meeting: await serializeMeeting(created, user), mail })
 }
@@ -350,7 +350,7 @@ scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
     }
   } else if (removed.length) {
     // Removed guests get a cancellation first, while they are still on the event.
-    await sendInvitations({ ...m, sequence: m.sequence + 1 }, 'cancel', removed)
+    await sendInvitations({ ...m, sequence: m.sequence + 1 }, 'cancel', removed, user)
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -398,9 +398,9 @@ scheduleRouter.patch('/:id/', scheduleLimiter, async (req, res) => {
   const mail: MailReport = updated.googleEventId
     ? { sent: toNotify.length, failed: [], via: 'google' }
     : slotChanged
-      ? await deliverInvitations(updated, 'update', guests)
+      ? await deliverInvitations(updated, 'update', guests, user)
       : added.length
-        ? await deliverInvitations(updated, 'new', added)
+        ? await deliverInvitations(updated, 'new', added, user)
         : { sent: 0, failed: [], via: 'email' }
   res.json({ meeting: await serializeMeeting(updated, user), mail })
 })
@@ -433,7 +433,8 @@ scheduleRouter.delete('/:id/', scheduleLimiter, async (req, res) => {
     : await deliverInvitations(
         cancelled,
         'cancel',
-        cancelled.attendees.map((a) => a.email)
+        cancelled.attendees.map((a) => a.email),
+        user
       )
   await releaseMeetingGuests(
     cancelled.roomId,

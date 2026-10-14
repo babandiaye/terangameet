@@ -43,15 +43,44 @@ export interface MailMessage {
    * event — an .ics merely attached is shown as a file.
    */
   icalEvent?: { method: 'REQUEST' | 'CANCEL'; content: string }
+  /** The person on whose behalf the mail goes out (see senderHeaders). */
+  sender?: MailSender
+}
+
+export interface MailSender {
+  name?: string | null
+  email?: string | null
+}
+
+/**
+ * From and Reply-To for one mail. The address stays TerangaMeet's: unchk.edu.sn
+ * publishes DMARC p=reject and only Google may send for it, so a mail "from"
+ * the user's own address would bounce or land in spam. The user shows as the
+ * display name ("Nom via TerangaMeet") and Reply-To takes answers back to them.
+ * Name and address go to nodemailer separately, which encodes them: a name with
+ * accents or quotes cannot break the header.
+ */
+export function senderHeaders(sender?: MailSender): {
+  from: string | { name: string; address: string }
+  replyTo?: string
+} {
+  const email = sender?.email?.trim()
+  const name = sender?.name?.trim() || email
+  if (!name) {
+    return { from: env.mail.fromName ? { name: env.mail.fromName, address: env.mail.from } : env.mail.from }
+  }
+  return {
+    from: { name: `${name} via TerangaMeet`, address: env.mail.from },
+    ...(email && email.includes('@') ? { replyTo: email } : {}),
+  }
 }
 
 /** Send one email. Throws if SMTP is not configured. */
 export async function sendMail(msg: MailMessage): Promise<void> {
   if (!env.mail.enabled) throw new Error('SMTP is not configured')
-  const from = env.mail.fromName ? `${env.mail.fromName} <${env.mail.from}>` : env.mail.from
-  const { icalEvent, ...rest } = msg
+  const { icalEvent, sender, ...rest } = msg
   await getTransport().sendMail({
-    from,
+    ...senderHeaders(sender),
     ...rest,
     ...(icalEvent
       ? { icalEvent: { method: icalEvent.method, filename: 'invitation.ics', content: icalEvent.content } }
