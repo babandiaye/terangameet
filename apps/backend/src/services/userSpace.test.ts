@@ -25,12 +25,22 @@ describe('readableRecordingsWhere', () => {
     expect(where.OR).toContainEqual({ roomId: { in: ['r1', 'r2'] } })
   })
 
-  it('opens recordings made after a listed participant was added, not before', () => {
+  it('opens recordings made after a meeting guest was added, not before', () => {
     const where = readableRecordingsWhere(user, { hostedRoomIds: [], listedSince: [{ roomId: 'r3', since }], listedPeriods: [] })
     expect(where.OR).toContainEqual({ roomId: 'r3', createdAt: { gte: since } })
   })
 
-  it('keeps the recordings made while a removed participant was listed', () => {
+  it('keeps everything recorded before the removal of a direct member', () => {
+    const until = new Date('2026-10-05T08:00:00Z')
+    const where = readableRecordingsWhere(user, {
+      hostedRoomIds: [],
+      listedSince: [],
+      listedPeriods: [{ roomId: 'r5', since: null, until }],
+    })
+    expect(where.OR).toContainEqual({ roomId: 'r5', createdAt: { lt: until } })
+  })
+
+  it('keeps the recordings made while a removed meeting guest was listed', () => {
     const until = new Date('2026-10-05T08:00:00Z')
     const where = readableRecordingsWhere(user, {
       hostedRoomIds: [],

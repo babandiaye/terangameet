@@ -164,6 +164,9 @@ model RoomInviteePeriod {
   email  String
   since  DateTime
   until  DateTime @default(now())
+  /// Added to the room directly (not by a scheduled meeting): the stay opened
+  /// the room's whole history, so everything recorded before `until` stays readable.
+  wholeHistory Boolean @default(false)
 
   @@index([email])
   @@map("room_invitee_periods")

@@ -27,18 +27,23 @@ export function attendedSessionsWhere(user: Pick<User, 'id' | 'sub'>): Prisma.Me
  * by recordingStanding(), so the rule itself stays pure and testable.
  */
 export interface RecordingStanding {
-  /** Rooms they own or co-organize: every recording, present or not. */
+  /**
+   * Rooms they own or co-organize, or where they are a member added directly
+   * to the list: every recording, past and future, present or not.
+   */
   hostedRoomIds: string[]
   /**
-   * Rooms where they are a listed participant, and since when: recordings made
-   * from that date on, so someone added late does not get the whole history.
+   * Rooms where a scheduled meeting put them on the list, and since when: a
+   * room serves many meetings, so a guest of one only reads what was recorded
+   * from their addition on — not the room's earlier meetings.
    */
   listedSince: { roomId: string; since: Date }[]
   /**
-   * Past stays on a list they were since taken off: the recordings made while
-   * they were listed remain theirs (room_invitee_periods).
+   * Past stays on a list they were since taken off (room_invitee_periods): a
+   * direct member keeps everything recorded before their removal (since =
+   * null), a meeting guest what was recorded while listed.
    */
-  listedPeriods: { roomId: string; since: Date; until: Date }[]
+  listedPeriods: { roomId: string; since: Date | null; until: Date }[]
 }
 
 export const NO_STANDING: RecordingStanding = { hostedRoomIds: [], listedSince: [], listedPeriods: [] }
@@ -46,11 +51,12 @@ export const NO_STANDING: RecordingStanding = { hostedRoomIds: [], listedSince: 
 /**
  * Recordings the user may read:
  *   - those they started (RecordingAccess);
- *   - those captured during a session they attended;
- *   - every recording of a room they own or co-organize, even when absent;
- *   - those of a room where they are a listed participant, made after they were
- *     added — so a staff member who missed the meeting can catch up;
- *   - those made while they were listed, once taken off the list.
+ *   - those captured during a session they attended, member or not;
+ *   - every recording of a room they own, co-organize or were added to
+ *     directly, even when absent and whatever the date;
+ *   - those of a room a scheduled meeting put them in, made after they were
+ *     added — so a guest who missed the meeting can catch up;
+ *   - once taken off the list, what they could read until then.
  * Guests without an account never qualify: they have no lasting identity.
  */
 export function readableRecordingsWhere(
@@ -63,7 +69,10 @@ export function readableRecordingsWhere(
       { session: attendedSessionsWhere(user) },
       ...(standing.hostedRoomIds.length ? [{ roomId: { in: standing.hostedRoomIds } }] : []),
       ...standing.listedSince.map((l) => ({ roomId: l.roomId, createdAt: { gte: l.since } })),
-      ...standing.listedPeriods.map((l) => ({ roomId: l.roomId, createdAt: { gte: l.since, lt: l.until } })),
+      ...standing.listedPeriods.map((l) => ({
+        roomId: l.roomId,
+        createdAt: l.since ? { gte: l.since, lt: l.until } : { lt: l.until },
+      })),
     ],
   }
 }
@@ -96,26 +105,28 @@ export async function recordingStanding(user: Pick<User, 'id' | 'email'>): Promi
     email
       ? prisma.roomInvitee.findMany({
           where: { email },
-          select: { roomId: true, isCoOrganizer: true, createdAt: true },
+          select: { roomId: true, isCoOrganizer: true, createdAt: true, addedByMeetingId: true },
         })
       : Promise.resolve([]),
     email
       ? prisma.roomInviteePeriod.findMany({
           where: { email },
-          select: { roomId: true, since: true, until: true },
+          select: { roomId: true, since: true, until: true, wholeHistory: true },
         })
       : Promise.resolve([]),
   ])
   const hosted = new Set([
     ...accesses.map((a) => a.roomId),
-    ...invitees.filter((i) => i.isCoOrganizer).map((i) => i.roomId),
+    ...invitees.filter((i) => i.isCoOrganizer || !i.addedByMeetingId).map((i) => i.roomId),
   ])
   return {
     hostedRoomIds: [...hosted],
     listedSince: invitees
       .filter((i) => !hosted.has(i.roomId))
       .map((i) => ({ roomId: i.roomId, since: i.createdAt })),
-    listedPeriods: periods.filter((p) => !hosted.has(p.roomId)),
+    listedPeriods: periods
+      .filter((p) => !hosted.has(p.roomId))
+      .map((p) => ({ roomId: p.roomId, since: p.wholeHistory ? null : p.since, until: p.until })),
   }
 }
 

@@ -235,6 +235,16 @@ myRoomsRouter.post('/:roomId/invitees/', async (req, res) => {
     })),
     skipDuplicates: true,
   })
+  // Added by hand, someone a scheduled meeting had listed becomes a member of
+  // the room in their own right: no longer removed with that meeting, and
+  // reading the room's whole recording history (services/userSpace.ts).
+  const relisted = valid.filter((e) => known.has(e))
+  if (relisted.length) {
+    await prisma.roomInvitee.updateMany({
+      where: { roomId: found.room.id, email: { in: relisted }, addedByMeetingId: { not: null } },
+      data: { addedByMeetingId: null },
+    })
+  }
   res.status(201).json({
     added: fresh,
     already_listed: valid.filter((e) => known.has(e)),

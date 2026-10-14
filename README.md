@@ -12,7 +12,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.2.2** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.2.3** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -51,11 +51,13 @@ En plus du périmètre de Meet :
   réunion pour tout le monde, restriction micro / caméra / partage d'écran.
 - **Enregistrements** : stockés dans le bucket MinIO privé
   `terangameetv2-recordings`, lus sur place ou téléchargés via le backend.
-  Visibles par : la personne qui l'a lancé, les présents à la séance, le
-  propriétaire et les co-organisateurs de la salle (tous, même absents), les
-  participants prévus (ceux faits depuis leur ajout ; une personne retirée
-  garde ceux de sa période d'inscription) et les administrateurs ; jamais les
-  invités sans compte. Purge automatique
+  Visibles par : la personne qui l'a lancé ; les présents à une séance (celle
+  à laquelle ils ont assisté, même sans être membres) ; le propriétaire, les
+  co-organisateurs et les membres ajoutés à la salle (tous, même absents et
+  antérieurs à leur ajout) ; les invités ajoutés par une réunion programmée
+  (ceux faits depuis leur ajout, une salle servant à plusieurs réunions) ; les
+  administrateurs. Une personne retirée garde ce qu'elle voyait jusqu'à son
+  retrait. Jamais les invités sans compte. Purge automatique
   configurable (1 mois à 1 an) — **désactivée en production pour le moment**
   (`PURGE_RECORDINGS_ENABLED=false`) ; la durée choisie est gardée en base.
 - **Invitations par email** (SMTP) depuis la fenêtre de partage, réservées à
@@ -290,6 +292,11 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.2.3** — enregistrements des membres d'une salle : un membre ajouté à la
+  salle voit tous ses enregistrements, y compris ceux faits avant son ajout ;
+  les invités ajoutés par une réunion programmée gardent ceux faits depuis leur
+  ajout ; un membre retiré garde ce qu'il voyait jusqu'à son retrait ; l'invité
+  d'une réunion ajouté ensuite à la main devient membre de la salle.
 - **2.2.2** — invitations au nom de l'organisateur : expéditeur affiché
   « Nom via TerangaMeet » (adresse d'envoi inchangée, le domaine unchk.edu.sn
   refusant tout autre serveur), réponses dirigées vers la personne qui invite

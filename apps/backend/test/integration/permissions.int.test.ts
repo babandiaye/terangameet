@@ -17,6 +17,18 @@ async function recordingIn(room: Room, opts: { at?: Date; attendee?: User } = {}
   })
 }
 
+function meetingIn(room: Room, organizer: User) {
+  return prisma.scheduledMeeting.create({
+    data: {
+      roomId: room.id,
+      organizerId: organizer.id,
+      title: 'Réunion',
+      startsAt: new Date(Date.now() + 3600_000),
+      endsAt: new Date(Date.now() + 2 * 3600_000),
+    },
+  })
+}
+
 const canSee = async (http: ReturnType<typeof as>, id: string) => (await http.get(`${API}/recordings/${id}`)).status
 
 describe('Accès aux enregistrements', () => {
@@ -42,28 +54,89 @@ describe('Accès aux enregistrements', () => {
     expect(await canSee(present.http, rec.id)).toBe(200)
   })
 
-  it('un participant prévu absent voit les enregistrements faits depuis son ajout, pas avant', async () => {
-    const owner = await createUser()
-    const room = await createRoom(owner)
-    const before = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
-    const listed = await signedIn()
-    await prisma.roomInvitee.create({ data: { roomId: room.id, email: listed.user.email! } })
-    const after = await recordingIn(room)
-    expect(await canSee(listed.http, after.id)).toBe(200)
-    expect(await canSee(listed.http, before.id)).toBe(404)
-  })
-
-  it('une personne retirée garde les enregistrements de sa période d’inscription', async () => {
+  it('un membre ajouté à la salle voit tous ses enregistrements, même antérieurs à son ajout', async () => {
     const owner = await signedIn()
     const room = await createRoom(owner.user)
+    const before = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
+    const member = await signedIn()
+    const add = await owner.http.post(`${API}/me/rooms/${room.id}/invitees/`, { emails: [member.user.email!] })
+    expect(add.status).toBe(201)
+    const after = await recordingIn(room)
+    expect(await canSee(member.http, before.id)).toBe(200)
+    expect(await canSee(member.http, after.id)).toBe(200)
+    const list = await member.http.get(`${API}/recordings/`)
+    expect(list.body.results.map((r: { id: string }) => r.id)).toEqual(expect.arrayContaining([before.id, after.id]))
+  })
+
+  it('un invité d’une réunion programmée ne voit que les enregistrements faits depuis son ajout', async () => {
+    const owner = await createUser()
+    const room = await createRoom(owner)
+    const meeting = await meetingIn(room, owner)
+    const before = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
+    const guest = await signedIn()
+    await prisma.roomInvitee.create({ data: { roomId: room.id, email: guest.user.email!, addedByMeetingId: meeting.id } })
+    const after = await recordingIn(room)
+    expect(await canSee(guest.http, after.id)).toBe(200)
+    expect(await canSee(guest.http, before.id)).toBe(404)
+  })
+
+  it('un non-membre présent à une séance enregistrée voit cet enregistrement, pas les autres', async () => {
+    const owner = await createUser()
+    const room = await createRoom(owner)
+    const present = await signedIn()
+    const attended = await recordingIn(room, { attendee: present.user })
+    const other = await recordingIn(room)
+    expect(await canSee(present.http, attended.id)).toBe(200)
+    expect(await canSee(present.http, other.id)).toBe(404)
+  })
+
+  it('l’invité d’une réunion ajouté ensuite à la main devient membre et voit tout l’historique', async () => {
+    const owner = await signedIn()
+    const room = await createRoom(owner.user)
+    const meeting = await meetingIn(room, owner.user)
+    const before = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
+    const guest = await signedIn()
+    await prisma.roomInvitee.create({ data: { roomId: room.id, email: guest.user.email!, addedByMeetingId: meeting.id } })
+    expect(await canSee(guest.http, before.id)).toBe(404)
+    await owner.http.post(`${API}/me/rooms/${room.id}/invitees/`, { emails: [guest.user.email!] })
+    expect(await canSee(guest.http, before.id)).toBe(200)
+  })
+
+  it('un membre retiré garde les enregistrements faits jusqu’à son retrait', async () => {
+    const owner = await signedIn()
+    const room = await createRoom(owner.user)
+    const older = await recordingIn(room, { at: new Date(Date.now() - 3 * 86_400_000) })
+    const member = await signedIn()
+    const inv = await prisma.roomInvitee.create({
+      data: { roomId: room.id, email: member.user.email!, createdAt: new Date(Date.now() - 2 * 86_400_000) },
+    })
+    const during = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
+    expect((await owner.http.delete(`${API}/me/rooms/${room.id}/invitees/${inv.id}/`)).status).toBe(200)
+    const afterRemoval = await recordingIn(room)
+    expect(await canSee(member.http, older.id)).toBe(200)
+    expect(await canSee(member.http, during.id)).toBe(200)
+    expect(await canSee(member.http, afterRemoval.id)).toBe(404)
+  })
+
+  it('un invité de réunion retiré garde seulement les enregistrements de sa période d’inscription', async () => {
+    const owner = await signedIn()
+    const room = await createRoom(owner.user)
+    const meeting = await meetingIn(room, owner.user)
+    const older = await recordingIn(room, { at: new Date(Date.now() - 3 * 86_400_000) })
     const guest = await signedIn()
     const inv = await prisma.roomInvitee.create({
-      data: { roomId: room.id, email: guest.user.email!, createdAt: new Date(Date.now() - 2 * 86_400_000) },
+      data: {
+        roomId: room.id,
+        email: guest.user.email!,
+        addedByMeetingId: meeting.id,
+        createdAt: new Date(Date.now() - 2 * 86_400_000),
+      },
     })
     const during = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
     expect((await owner.http.delete(`${API}/me/rooms/${room.id}/invitees/${inv.id}/`)).status).toBe(200)
     const afterRemoval = await recordingIn(room)
     expect(await canSee(guest.http, during.id)).toBe(200)
+    expect(await canSee(guest.http, older.id)).toBe(404)
     expect(await canSee(guest.http, afterRemoval.id)).toBe(404)
   })
 })

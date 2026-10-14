@@ -4,10 +4,14 @@ import { prisma } from '../lib/prisma'
 type Tx = Prisma.TransactionClient
 
 /** Move rows to room_invitee_periods, then off the list (inside a transaction). */
-async function endStays(tx: Tx, roomId: string, rows: { id: string; email: string; createdAt: Date }[]) {
+async function endStays(
+  tx: Tx,
+  roomId: string,
+  rows: { id: string; email: string; createdAt: Date; addedByMeetingId: string | null }[]
+) {
   if (!rows.length) return 0
   await tx.roomInviteePeriod.createMany({
-    data: rows.map((r) => ({ roomId, email: r.email, since: r.createdAt })),
+    data: rows.map((r) => ({ roomId, email: r.email, since: r.createdAt, wholeHistory: !r.addedByMeetingId })),
   })
   await tx.roomInvitee.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } })
   return rows.length
@@ -16,9 +20,9 @@ async function endStays(tx: Tx, roomId: string, rows: { id: string; email: strin
 /**
  * Take people off a room's participant list. They lose their place in the room
  * (direct entry to a restricted room, recordings made from now on), but a trace
- * of their stay is kept in room_invitee_periods so the recordings made while
- * they were listed stay theirs — someone legitimately invited keeps the record
- * of the meetings they were invited to.
+ * of their stay is kept in room_invitee_periods so what they could read stays
+ * theirs: a member added directly keeps the room's recordings up to their
+ * removal, a meeting guest those made while listed.
  */
 export async function removeRoomInvitees(roomId: string, emails: string[]): Promise<number> {
   if (!emails.length) return 0

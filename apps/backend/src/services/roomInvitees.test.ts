@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const calls: { op: string; args: unknown }[] = []
-let listed: { id: string; email: string; createdAt: Date }[] = []
+let listed: { id: string; email: string; createdAt: Date; addedByMeetingId: string | null }[] = []
 let elsewhere: { email: string; meetingId: string }[] = []
 
 const tx = {
@@ -34,17 +34,17 @@ describe('releaseMeetingGuests', () => {
   })
 
   it('ends the stay of a guest no other meeting expects, keeping its period', async () => {
-    listed = [{ id: 'i1', email: 'a@x.sn', createdAt: since }]
+    listed = [{ id: 'i1', email: 'a@x.sn', createdAt: since, addedByMeetingId: 'm1' }]
     expect(await releaseMeetingGuests('room', 'm1', ['a@x.sn'])).toBe(1)
     expect(calls).toContainEqual({
       op: 'period.createMany',
-      args: { data: [{ roomId: 'room', email: 'a@x.sn', since }] },
+      args: { data: [{ roomId: 'room', email: 'a@x.sn', since, wholeHistory: false }] },
     })
     expect(calls).toContainEqual({ op: 'invitee.deleteMany', args: { where: { id: { in: ['i1'] } } } })
   })
 
   it('keeps a guest expected at another upcoming meeting, now attached to it', async () => {
-    listed = [{ id: 'i1', email: 'a@x.sn', createdAt: since }]
+    listed = [{ id: 'i1', email: 'a@x.sn', createdAt: since, addedByMeetingId: 'm1' }]
     elsewhere = [{ email: 'a@x.sn', meetingId: 'm2' }]
     expect(await releaseMeetingGuests('room', 'm1', ['a@x.sn'])).toBe(0)
     expect(calls).toContainEqual({ op: 'invitee.update', args: { where: { id: 'i1' }, data: { addedByMeetingId: 'm2' } } })
