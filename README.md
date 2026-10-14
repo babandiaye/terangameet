@@ -12,7 +12,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.2.3** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.2.4** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -56,8 +56,9 @@ En plus du périmètre de Meet :
   co-organisateurs et les membres ajoutés à la salle (tous, même absents et
   antérieurs à leur ajout) ; les invités ajoutés par une réunion programmée
   (ceux faits depuis leur ajout, une salle servant à plusieurs réunions) ; les
-  administrateurs. Une personne retirée garde ce qu'elle voyait jusqu'à son
-  retrait. Jamais les invités sans compte. Purge automatique
+  administrateurs. Une personne retirée de la liste ne voit plus que les
+  séances auxquelles elle a assisté. Jamais les invités sans compte. Purge
+  automatique
   configurable (1 mois à 1 an) — **désactivée en production pour le moment**
   (`PURGE_RECORDINGS_ENABLED=false`) ; la durée choisie est gardée en base.
 - **Invitations par email** (SMTP) depuis la fenêtre de partage, réservées à
@@ -292,6 +293,9 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.2.4** — une personne retirée de la liste d'une salle ne voit plus les
+  enregistrements des séances qu'elle a manquées ; elle garde ceux des séances
+  auxquelles elle a assisté. L'historique des inscriptions reste conservé.
 - **2.2.3** — enregistrements des membres d'une salle : un membre ajouté à la
   salle voit tous ses enregistrements, y compris ceux faits avant son ajout ;
   les invités ajoutés par une réunion programmée gardent ceux faits depuis leur

@@ -19,10 +19,9 @@ async function endStays(
 
 /**
  * Take people off a room's participant list. They lose their place in the room
- * (direct entry to a restricted room, recordings made from now on), but a trace
- * of their stay is kept in room_invitee_periods so what they could read stays
- * theirs: a member added directly keeps the room's recordings up to their
- * removal, a meeting guest those made while listed.
+ * (direct entry to a restricted room) and the recordings the list opened to
+ * them — only the sessions they attended stay readable (services/userSpace.ts).
+ * Their stay is kept in room_invitee_periods as history; it grants nothing.
  */
 export async function removeRoomInvitees(roomId: string, emails: string[]): Promise<number> {
   if (!emails.length) return 0

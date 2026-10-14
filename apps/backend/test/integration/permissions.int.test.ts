@@ -102,27 +102,26 @@ describe('Accès aux enregistrements', () => {
     expect(await canSee(guest.http, before.id)).toBe(200)
   })
 
-  it('un membre retiré garde les enregistrements faits jusqu’à son retrait', async () => {
+  it('un membre retiré ne voit plus que les séances auxquelles il a assisté', async () => {
     const owner = await signedIn()
     const room = await createRoom(owner.user)
-    const older = await recordingIn(room, { at: new Date(Date.now() - 3 * 86_400_000) })
     const member = await signedIn()
-    const inv = await prisma.roomInvitee.create({
-      data: { roomId: room.id, email: member.user.email!, createdAt: new Date(Date.now() - 2 * 86_400_000) },
-    })
-    const during = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
+    const add = await owner.http.post(`${API}/me/rooms/${room.id}/invitees/`, { emails: [member.user.email!] })
+    expect(add.status).toBe(201)
+    const missed = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
+    const attended = await recordingIn(room, { at: new Date(Date.now() - 3600_000), attendee: member.user })
+    expect(await canSee(member.http, missed.id)).toBe(200)
+    const inv = (await prisma.roomInvitee.findFirstOrThrow({ where: { roomId: room.id, email: member.user.email! } }))
     expect((await owner.http.delete(`${API}/me/rooms/${room.id}/invitees/${inv.id}/`)).status).toBe(200)
-    const afterRemoval = await recordingIn(room)
-    expect(await canSee(member.http, older.id)).toBe(200)
-    expect(await canSee(member.http, during.id)).toBe(200)
-    expect(await canSee(member.http, afterRemoval.id)).toBe(404)
+    expect(await canSee(member.http, missed.id)).toBe(404)
+    expect(await canSee(member.http, attended.id)).toBe(200)
+    expect(await prisma.roomInviteePeriod.count({ where: { roomId: room.id, email: member.user.email! } })).toBe(1)
   })
 
-  it('un invité de réunion retiré garde seulement les enregistrements de sa période d’inscription', async () => {
+  it('un invité de réunion retiré ne voit plus les séances manquées', async () => {
     const owner = await signedIn()
     const room = await createRoom(owner.user)
     const meeting = await meetingIn(room, owner.user)
-    const older = await recordingIn(room, { at: new Date(Date.now() - 3 * 86_400_000) })
     const guest = await signedIn()
     const inv = await prisma.roomInvitee.create({
       data: {
@@ -132,12 +131,10 @@ describe('Accès aux enregistrements', () => {
         createdAt: new Date(Date.now() - 2 * 86_400_000),
       },
     })
-    const during = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
+    const missed = await recordingIn(room, { at: new Date(Date.now() - 86_400_000) })
+    expect(await canSee(guest.http, missed.id)).toBe(200)
     expect((await owner.http.delete(`${API}/me/rooms/${room.id}/invitees/${inv.id}/`)).status).toBe(200)
-    const afterRemoval = await recordingIn(room)
-    expect(await canSee(guest.http, during.id)).toBe(200)
-    expect(await canSee(guest.http, older.id)).toBe(404)
-    expect(await canSee(guest.http, afterRemoval.id)).toBe(404)
+    expect(await canSee(guest.http, missed.id)).toBe(404)
   })
 })
 
