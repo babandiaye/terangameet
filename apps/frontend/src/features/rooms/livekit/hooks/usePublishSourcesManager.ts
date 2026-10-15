@@ -1,7 +1,6 @@
 import { Track } from 'livekit-client'
 import { useCallback, useMemo } from 'react'
-import { queryClient } from '@/api/queryClient'
-import { keys } from '@/api/queryKeys'
+import { mergeRoomIntoCache } from '@/features/rooms/api/mergeRoomCache'
 import { useConfig } from '@/api/useConfig'
 import { usePatchRoom } from '@/features/rooms/api/patchRoom'
 import { useRemoteParticipants } from '@livekit/components-react'
@@ -82,7 +81,7 @@ export const usePublishSourcesManager = () => {
           room: { configuration: newConfiguration },
         })
 
-        queryClient.setQueryData([keys.room, roomId], room)
+        mergeRoomIntoCache(roomId, room)
 
         await updateParticipantsPermissions(
           unprivilegedRemoteParticipants,

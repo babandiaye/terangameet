@@ -574,10 +574,6 @@
       "screenshare": {
         "label": "Partager leur écran",
         "description": "En désactivant cette option, les participants ne pourront plus partager leur écran et tout partage en cours sera immédiatement interrompu. Les organisateurs et co-animateurs ne sont pas concernés."
-      },
-      "mute": {
-        "label": "Muter les autres",
-        "description": "En désactivant cette option, les participants ne pourront plus muter d'autres participants."
       }
     }
   },

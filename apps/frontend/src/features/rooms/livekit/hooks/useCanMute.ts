@@ -1,13 +1,13 @@
 import { useIsAdminOrOwner } from './useIsAdminOrOwner'
 import type { Participant } from 'livekit-client'
-import { useRoomData } from '@/features/rooms/livekit/hooks/useRoomData'
 
+/**
+ * Who may mute this participant: themselves, or a moderator (owner,
+ * co-organizer, co-host of the session). The server enforces the same rule
+ * (POST /rooms/:id/mute-participant/), so the button is never offered to
+ * someone who would be refused.
+ */
 export const useCanMute = (participant: Participant) => {
-  const apiRoomData = useRoomData()
   const isAdminOrOwner = useIsAdminOrOwner()
-  return (
-    participant.isLocal ||
-    isAdminOrOwner ||
-    apiRoomData?.configuration?.everyone_can_mute !== false
-  )
+  return participant.isLocal || isAdminOrOwner
 }

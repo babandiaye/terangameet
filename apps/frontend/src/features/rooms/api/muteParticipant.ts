@@ -19,7 +19,11 @@ export const useMuteParticipant = () => {
   const muteParticipant = useCallback(
     async (participant: Participant) => {
       if (!apiRoomData?.livekit?.room) {
-        throw new Error('Room id is not available')
+        showActionError(
+          null,
+          'Impossible de couper ce micro : rechargez la page.'
+        )
+        return
       }
 
       const trackSid = participant.getTrackPublication(

@@ -12,7 +12,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.2.4** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.2.5** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -293,6 +293,12 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.2.5** — modération fiable en cours de séance : changer le type d'accès
+  ou les sources autorisées pendant une réunion ne coupe plus la modération de
+  l'organisateur (couper les micros, exclure, terminer, enregistrer) ; seuls les
+  modérateurs voient le bouton pour couper le micro des autres (réglage « Muter
+  les autres » retiré) ; date de la page d'enregistrement en JJ-MM-AAAA et
+  encart « Beta » retiré.
 - **2.2.4** — une personne retirée de la liste d'une salle ne voit plus les
   enregistrements des séances qu'elle a manquées ; elle garde ceux des séances
   auxquelles elle a assisté. L'historique des inscriptions reste conservé.
