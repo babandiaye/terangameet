@@ -36,28 +36,6 @@ const toDownloadFilename = (roomName: string, createdAt: string) => {
   return date ? `${name}-${date}` : name
 }
 
-const BetaBadge = () => (
-  <span
-    className={css({
-      content: '"Beta"',
-      display: 'block',
-      letterSpacing: '-0.02rem',
-      padding: '0 0.25rem',
-      backgroundColor: 'primary.100',
-      color: '#0063CB',
-      fontSize: '14px',
-      fontWeight: 500,
-      margin: '0 0.3125rem',
-      lineHeight: '1rem',
-      borderRadius: '4px',
-      width: 'fit-content',
-      height: 'fit-content',
-    })}
-  >
-    Beta
-  </span>
-)
-
 /**
  * Plays the recording in place. The media route serves byte ranges, so the
  * browser fetches only what it needs and seeking works; `preload="metadata"`
@@ -175,7 +153,7 @@ const RecordingDownload = () => {
         body={
           data.expired_at
             ? t('expired.body', {
-                date: formatDate(data.expired_at, 'YYYY-MM-DD HH:mm'),
+                date: formatDate(data.expired_at, 'DD-MM-YYYY HH:mm'),
               })
             : t('expired.bodyNoDate')
         }
@@ -197,7 +175,7 @@ const RecordingDownload = () => {
               <span>
                 {t('success.body', {
                   room: roomName,
-                  created_at: formatDate(data.created_at, 'YYYY-MM-DD HH:mm'),
+                  created_at: formatDate(data.created_at, 'DD-MM-YYYY HH:mm'),
                 })}
               </span>
               <span>
@@ -226,28 +204,6 @@ const RecordingDownload = () => {
             >
               {t('success.button')}
             </LinkButton>
-            <div
-              className={css({
-                backgroundColor: 'greyscale.50',
-                borderRadius: '5px',
-                paddingY: '1rem',
-                paddingX: '1rem',
-                maxWidth: '80%',
-                marginTop: '1rem',
-                display: 'flex',
-                flexDirection: 'column',
-              })}
-            >
-              <Text
-                className={css({
-                  display: 'flex',
-                  alignItems: 'center',
-                })}
-              >
-                {t('success.warning.title')} <BetaBadge />
-              </Text>
-              <Text variant="smNote">{t('success.warning.body')}</Text>
-            </div>
           </VStack>
         </Center>
       </Screen>
