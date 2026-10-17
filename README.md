@@ -12,7 +12,7 @@ projet [Meet](https://github.com/suitenumerique/meet) de La Suite Numérique.
   modération, enregistrement, fichiers, sous-titres, webhooks.
 - **Média** : serveur LiveKit existant (non modifié), atteint via `livekit-server-sdk`.
 
-Version actuelle : **2.2.5** — en service sur https://terangameet.unchk.sn.
+Version actuelle : **2.2.6** — en service sur https://terangameet.unchk.sn.
 
 ## Fonctionnalités propres à l'UN-CHK
 
@@ -293,6 +293,10 @@ Sous `/api/v1.0/` :
 
 ## Versions
 
+- **2.2.6** — connexion à Google Agenda : le backend attend jusqu'à 2 s une
+  adresse avant de passer à la suivante (la connexion IPv4 à
+  oauth2.googleapis.com prend ~300 ms derrière le pare-feu et le serveur n'a
+  pas de route IPv6) ; l'échange du jeton Google n'échoue plus.
 - **2.2.5** — modération fiable en cours de séance : changer le type d'accès
   ou les sources autorisées pendant une réunion ne coupe plus la modération de
   l'organisateur (couper les micros, exclure, terminer, enregistrer) ; seuls les

@@ -1,3 +1,4 @@
+import { setDefaultAutoSelectFamilyAttemptTimeout } from 'node:net'
 import { createApp } from './app'
 import { env, validateEnv } from './config/env'
 import { prisma } from './lib/prisma'
@@ -5,6 +6,12 @@ import { logger } from './lib/logger'
 import { startPurgeScheduler } from './services/recordingPurge'
 import { startGoogleSyncScheduler } from './services/googleSync'
 import { startReconcileScheduler } from './services/livekitReconcile'
+
+// Some upstreams (oauth2.googleapis.com) take ~300 ms to accept a TCP
+// connection through the university firewall, past Node's 250 ms happy-eyeballs
+// attempt; and this host has no IPv6 route, so the fallback fails at once and
+// fetch() gives up on an address that was about to answer.
+setDefaultAutoSelectFamilyAttemptTimeout(2000)
 
 // Safety nets. A stray rejected promise (a fire-and-forget call, a timer) is
 // logged, not fatal: Node 22 would otherwise stop the server and every meeting
